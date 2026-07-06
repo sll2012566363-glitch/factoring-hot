@@ -1,41 +1,32 @@
-name: Fetch Factoring Sources
+name: Pipeline (fetch → pre-filter → enrich → score)
 
 on:
   schedule:
-    - cron: '0 */2 * * *'  # Every 2 hours
+    - cron: '0 * * * *'  # Every hour
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
-  fetch:
+  pipeline:
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
-      - name: Fetch articles
+
+      - name: Run full pipeline
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: npm run fetch
-      
-      - name: Score articles
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: npm run score
-      
-      - name: Notify on failure
-        if: failure()
-        run: echo "Fetch workflow failed. Check logs for details."
-        # TODO: Add notification (feishu/webhook) here
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_API_URL: ${{ secrets.LLM_API_URL }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+        run: npx tsx src/scripts/run-pipeline.ts

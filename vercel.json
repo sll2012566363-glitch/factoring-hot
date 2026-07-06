@@ -1,8 +1,5 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/run-pipeline",
-      "schedule": "0 */2 * * *"
-    }
-  ]
+  "buildCommand": "next build",
+  "outputDirectory": ".next",
+  "framework": "nextjs"
 }
