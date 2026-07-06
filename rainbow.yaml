@@ -1,0 +1,41 @@
+name: factoring-hot
+services:
+  - type: web
+    name: factoring-hot
+    env: NEXT_PUBLIC_SUPABASE_URL
+    value: https://your-project.supabase.co
+  - type: web
+    name: factoring-hot
+    env: NEXT_PUBLIC_SUPABASE_ANON_KEY
+    value: your_anon_key
+  - type: web
+    name: factoring-hot
+    env: SUPABASE_SERVICE_ROLE_KEY
+    value: your_service_role_key
+  - type: web
+    name: factoring-hot
+    env: OPENAI_API_KEY
+    value: your_openai_key
+
+builds:
+  - name: factoring-hot
+    machine: standard
+    env:
+      - NEXT_PUBLIC_SUPABASE_URL
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY
+      - SUPABASE_SERVICE_ROLE_KEY
+      - OPENAI_API_KEY
+
+scripts:
+  - name: Install dependencies
+    run: npm install
+  - name: Build
+    run: npm run build
+
+outputs:
+  - name: factorting-hot
+    type: web
+    path: .
+    port: 3000
+    build_script: scripts/build.sh
+    run_script: scripts/start.sh

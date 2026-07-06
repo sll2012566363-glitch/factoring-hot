@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Factoring HOT - 保理行业资讯</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Inter', sans-serif; background: #F2F2F2; color: #0A0A0A; }
+    
+    .header { background: #FFFFFF; height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 40px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); position: sticky; top: 0; z-index: 100; }
+    .brand { font-size: 20px; font-weight: 900; color: #FFC832; letter-spacing: -0.02em; cursor: pointer; }
+    .nav { display: flex; gap: 8px; }
+    .nav-item { padding: 8px 16px; border-radius: 20px; font-size: 14px; cursor: pointer; background: transparent; color: #5C5C5C; border: none; transition: all 0.2s; font-family: inherit; }
+    .nav-item:hover { background: #F2F2F2; }
+    .nav-item.active { background: #0A0A0A; color: #FFFFFF; }
+    
+    .page { display: none; }
+    .page.active { display: block; }
+    
+    .hero { background: #050505; padding: 48px 40px; color: #FFFFFF; }
+    .hero-title { font-size: 56px; font-weight: 900; color: #FFC832; letter-spacing: -0.03em; line-height: 1.1; }
+    .hero-sub { font-size: 18px; color: #FFFFFF; opacity: 0.7; margin-top: 8px; }
+    .hero-meta { display: flex; gap: 24px; margin-top: 24px; flex-wrap: wrap; }
+    .meta-item { font-size: 14px; color: #FFFFFF; opacity: 0.5; }
+    
+    .filter-bar { background: #FFFFFF; padding: 16px 40px; display: flex; gap: 12px; border-bottom: 1px solid #E0E0E0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .cat-btn { padding: 8px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; white-space: nowrap; transition: all 0.2s; font-family: inherit; }
+    .cat-btn.active { background: #0A0A0A; color: #FFFFFF; }
+    .cat-btn:not(.active) { background: #F2F2F2; color: #5C5C5C; }
+    .cat-btn:not(.active):hover { background: #E5E5E5; }
+    
+    .main { max-width: 1200px; margin: 0 auto; padding: 32px 40px; }
+    
+    .section { margin-bottom: 48px; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+    .section-title { font-size: 24px; font-weight: 700; }
+    .section-count { font-size: 14px; color: #5C5C5C; }
+    
+    .article-card { background: #FFFFFF; border-radius: 16px; padding: 24px; margin-bottom: 16px; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; }
+    .article-card:hover { border-color: #E0E0E0; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    .article-title { font-size: 18px; font-weight: 600; line-height: 1.4; margin-bottom: 12px; }
+    .article-excerpt { font-size: 14px; color: #5C5C5C; line-height: 1.6; margin-bottom: 16px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .article-meta { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+    .article-source { font-size: 13px; color: #5C5C5C; }
+    .tag { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 500; display: inline-block; }
+    .tag-policy { background: #E8F4FD; color: #0066CC; }
+    .tag-market { background: #E8F5E9; color: #2E7D32; }
+    .tag-risk { background: #FCE4EC; color: #C62828; }
+    .tag-innovation { background: #FFF3E0; color: #E65100; }
+    
+    .bento-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 32px; }
+    .bento-main { background: #0A0A0A; border-radius: 24px; padding: 32px; color: #FFFFFF; transition: transform 0.2s; }
+    .bento-main:hover { transform: translateY(-4px); }
+    .bento-side { display: flex; flex-direction: column; gap: 16px; }
+    .bento-card { background: #FFFFFF; border-radius: 16px; padding: 20px; flex: 1; transition: transform 0.2s; }
+    .bento-card:hover { transform: translateY(-4px); }
+    
+    .footer { background: #0A0A0A; color: #FFFFFF; padding: 48px 40px; margin-top: 80px; }
+    
+    /* Report Page Styles */
+    .report-hero { background: linear-gradient(135deg, #0A0A0A 0%, #1A1A2E 100%); padding: 64px 40px; color: #FFFFFF; }
+    .report-hero-title { font-size: 48px; font-weight: 900; color: #FFC832; letter-spacing: -0.03em; line-height: 1.1; }
+    .report-hero-sub { font-size: 20px; color: #FFFFFF; opacity: 0.8; margin-top: 12px; }
+    .report-meta { display: flex; gap: 24px; margin-top: 24px; flex-wrap: wrap; }
+    .report-meta-item { font-size: 14px; color: #FFFFFF; opacity: 0.6; }
+    
+    .report-content { max-width: 1200px; margin: 0 auto; padding: 48px 40px; }
+    
+    /* 五大板块样式 */
+    .report-section { margin-bottom: 64px; }
+    .report-section-header { 
+      background: #0A0A0A; 
+      color: #FFFFFF; 
+      padding: 24px 32px; 
+      border-radius: 16px; 
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: transform 0.2s;
+    }
+    .report-section-header:hover {
+      transform: translateX(4px);
+    }
+    .report-section-num { 
+      font-size: 48px; 
+      font-weight: 900; 
+      color: #FFC832; 
+      line-height: 1;
+      min-width: 60px;
+    }
+    .report-section-info { flex: 1; }
+    .report-section-title { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+    .report-section-desc { font-size: 14px; opacity: 0.6; }
+    
+    .report-article { 
+      background: #FFFFFF; 
+      border-radius: 12px; 
+      padding: 20px 24px; 
+      margin-bottom: 12px;
+      border-left: 4px solid #FFC832;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .report-article:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      transform: translateX(4px);
+    }
+    .report-article-title { 
+      font-size: 16px; 
+      font-weight: 600; 
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+    .report-article-meta { 
+      font-size: 13px; 
+      color: #5C5C5C;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    
+    .insight-box { 
+      background: #FFFFFF; 
+      border-radius: 16px; 
+      padding: 24px; 
+      margin: 24px 0;
+      border-left: 4px solid #FFC832;
+    }
+    .insight-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .insight-text { font-size: 14px; color: #5C5C5C; line-height: 1.7; }
+    .insight-text p { margin-bottom: 8px; }
+    
+    .report-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 24px 0; }
+    .report-card { background: #FFFFFF; border-radius: 16px; padding: 20px; transition: transform 0.2s; }
+    .report-card:hover { transform: translateY(-4px); }
+    .report-card-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .report-card-text { font-size: 14px; color: #5C5C5C; line-height: 1.6; }
+    
+    .tab-bar { display: flex; gap: 0; background: #FFFFFF; border-radius: 12px; padding: 4px; margin-bottom: 32px; width: fit-content; }
+    .tab-item { padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; background: transparent; color: #5C5C5C; transition: all 0.2s; font-family: inherit; }
+    .tab-item.active { background: #0A0A0A; color: #FFFFFF; }
+    
+    .month-overview { 
+      background: #FFFFFF; 
+      border-radius: 16px; 
+      padding: 32px;
+      margin-bottom: 32px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .month-overview-title { 
+      font-size: 20px; 
+      font-weight: 700; 
+      margin-bottom: 16px;
+      color: #0A0A0A;
+    }
+    .month-stats { 
+      display: grid; 
+      grid-template-columns: repeat(4, 1fr); 
+      gap: 16px; 
+      margin: 24px 0;
+    }
+    .month-stat { 
+      text-align: center;
+      padding: 16px;
+      background: #F2F2F2;
+      border-radius: 12px;
+      transition: transform 0.2s;
+    }
+    .month-stat:hover {
+      transform: translateY(-4px);
+      background: #FFC832;
+    }
+    .month-stat:hover .month-stat-value {
+      color: #0A0A0A;
+    }
+    .month-stat-value { 
+      font-size: 32px; 
+      font-weight: 900; 
+      color: #FFC832;
+      display: block;
+      transition: color 0.2s;
+    }
+    .month-stat-label { 
+      font-size: 13px; 
+      color: #5C5C5C;
+      margin-top: 4px;
+    }
+    
+    /* Archive Page */
+    .archive-list { background: #FFFFFF; border-radius: 16px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .archive-item { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid #F2F2F2; transition: background 0.2s; cursor: pointer; }
+    .archive-item:last-child { border-bottom: none; }
+    .archive-item:hover { background: #F9F9F9; margin: 0 -24px; padding: 16px 24px; }
+    .archive-date { font-size: 14px; font-weight: 600; color: #0A0A0A; min-width: 120px; }
+    .archive-title { font-size: 14px; color: #5C5C5C; flex: 1; margin: 0 16px; }
+    .archive-download { font-size: 13px; color: #FFC832; cursor: pointer; font-weight: 500; white-space: nowrap; }
+    .archive-download:hover { text-decoration: underline; }
+    
+    /* Loading Animation */
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 48px;
+    }
+    .loading-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #F2F2F2;
+      border-top: 3px solid #FFC832;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    @media (max-width: 768px) {
+      .header { padding: 0 20px; }
+      .hero { padding: 32px 20px; }
+      .hero-title { font-size: 36px; }
+      .filter-bar { padding: 12px 20px; }
+      .main { padding: 20px; }
+      .bento-grid { grid-template-columns: 1fr; }
+      .report-grid { grid-template-columns: 1fr; }
+      .report-hero { padding: 48px 20px; }
+      .report-hero-title { font-size: 32px; }
+      .report-content { padding: 32px 20px; }
+      .month-stats { grid-template-columns: repeat(2, 1fr); }
+      .report-section-header { flex-direction: column; text-align: center; }
+      .report-section-num { font-size: 36px; }
+      .archive-item { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .archive-title { margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand" onclick="showPage('daily')">Factoring HOT</div>
+    <div class="nav">
+      <button class="nav-item active" data-page="daily">日报</button>
+      <button class="nav-item" data-page="weekly">周报</button>
+      <button class="nav-item" data-page="monthly">月刊</button>
+      <button class="nav-item" data-page="archive">往期</button>
+    </div>
+  </div>
+
+  <!-- Daily Report Page -->
+  <div id="page-daily" class="page active">
+    <div class="hero">
+      <div class="hero-title">Factoring HOT</div>
+      <div class="hero-sub">保理与供应链金融行业资讯 · 每日精选</div>
+      <div class="hero-meta">
+        <div class="meta-item">📅 2026-07-05</div>
+        <div class="meta-item">📄 今日 23 篇</div>
+        <div class="meta-item">🔥 热点 5 条</div>
+        <div class="meta-item">⚡ 更新于 5 分钟前</div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <button class="cat-btn active">全部</button>
+      <button class="cat-btn">🏛️ 政策监管</button>
+      <button class="cat-btn">📈 市场信号</button>
+      <button class="cat-btn">⚠️ 风险预警</button>
+      <button class="cat-btn">💡 创新实践</button>
+    </div>
+
+    <div class="main">
+      <div class="bento-grid">
+        <div class="bento-main">
+          <div>
+            <span class="tag tag-policy">政策</span>
+            <div style="font-size: 28px; font-weight: 800; line-height: 1.3; margin: 16px 0;">银保监会发布商业保理公司监督管理办法修订草案</div>
+            <div style="font-size: 15px; opacity: 0.7; line-height: 1.6;">新办法大幅提高了商业保理公司的注册资本门槛，明确了保理业务的信息披露要求...</div>
+          </div>
+          <div style="margin-top: 24px; font-size: 13px; opacity: 0.5;">银保监会 · 2小时前</div>
+        </div>
+        <div class="bento-side">
+          <div class="bento-card">
+            <div style="font-weight: 600; margin-bottom: 12px;">今日热榜</div>
+            <div style="font-size: 14px; color: #5C5C5C; line-height: 2;">
+              <div>1. 银保监会发布保理监管新规</div>
+              <div>2. 供应链ABS发行规模创新高</div>
+              <div>3. 某保理公司风险事件警示</div>
+            </div>
+          </div>
+          <div class="bento-card">
+            <div style="font-weight: 600; margin-bottom: 8px;">覆盖信源</div>
+            <div style="font-size: 24px; font-weight: 900; color: #FFC832;">20</div>
+            <div style="font-size: 13px; color: #5C5C5C;">官方 · 协会 · 媒体 · 智库</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">🏛️ 政策监管</div>
+          <div class="section-count">5 篇</div>
+        </div>
+        
+        <div class="article-card">
+          <div class="article-title">银保监会发布商业保理公司监督管理办法修订草案</div>
+          <div class="article-excerpt">新办法大幅提高了商业保理公司的注册资本门槛，从原来的5000万元提高到1亿元，明确了保理业务的信息披露要求，强化了对关联交易的管理...</div>
+          <div class="article-meta">
+            <div class="article-source">银保监会 · 2小时前</div>
+            <div>
+              <span class="tag tag-policy">政策</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="article-card">
+          <div class="article-title">人民银行：规范应收账款质押登记，保护债权人合法权益</div>
+          <div class="article-excerpt">人民银行发布《应收账款质押登记办法》修订版，对应收账款质押登记的程序、效力、查询等进行了全面规范...</div>
+          <div class="article-meta">
+            <div class="article-source">人民银行 · 5小时前</div>
+            <div>
+              <span class="tag tag-policy">政策</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">📈 市场信号</div>
+          <div class="section-count">8 篇</div>
+        </div>
+        
+        <div class="article-card">
+          <div class="article-title">2026年上半年供应链ABS发行规模达1200亿元，同比增长35%</div>
+          <div class="article-excerpt">据Wind数据统计，2026年上半年供应链ABS发行规模达1200亿元，同比增长35%，创历史新高。其中...</div>
+          <div class="article-meta">
+            <div class="article-source">Wind资讯 · 3小时前</div>
+            <div>
+              <span class="tag tag-market">市场</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weekly Report Page -->
+  <div id="page-weekly" class="page">
+    <div class="report-hero">
+      <div class="report-hero-title">2026年第27周</div>
+      <div class="report-hero-sub">保理与供应链金融行业周报</div>
+      <div class="report-meta">
+        <div class="report-meta-item">📅 2026-07-01 至 2026-07-07</div>
+        <div class="report-meta-item">📄 本周 127 篇</div>
+        <div class="report-meta-item">🔥 重点 12 条</div>
+      </div>
+    </div>
+
+    <div class="report-content">
+      <div class="month-overview">
+        <div class="month-overview-title">📊 本周概览</div>
+        <div class="month-stats">
+          <div class="month-stat">
+            <span class="month-stat-value">23</span>
+            <div class="month-stat-label">政策动态</div>
+          </div>
+          <div class="month-stat">
+            <span class="month-stat-value">45</span>
+            <div class="month-stat-label">市场资讯</div>
+          </div>
+          <div class="month-stat">
+            <span class="month-stat-value">18</span>
+            <div class="month-stat-label">风险警示</div>
+          </div>
+          <div class="month-stat">
+            <span class="month-stat-value">12</span>
+            <div class="month-stat-label">创新实践</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="report-section">
+        <div class="report-section-header">
+          <div class="report-section-num">🔥</div>
+          <div class="report-section-info">
+            <div class="report-section-title">本周热点</div>
+            <div class="report-section-desc">最受关注的行业动态</div>
+          </div>
+        </div>
+
+        <div class="insight-box">
+          <div class="insight-title">银保监会发布保理监管新规征求意见稿</div>
+          <div class="insight-text">
+            <p>本周最受关注的政策动态。新规提高了注册资本门槛，强化了信息披露要求，预计将对行业格局产生深远影响。</p>
+            <p style="margin-top: 8px;">业内普遍认为，这将推动行业集中度提升，利好头部企业。</p>
+          </div>
+        </div>
+        
+        <div class="report-article">
+          <div class="report-article-title">供应链ABS发行创新高，单周规模达180亿元</div>
+          <div class="report-article-meta">
+            <span>Wind资讯</span>
+            <span>·</span>
+            <span>2026-07-05</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="report-section">
+        <div class="report-section-header">
+          <div class="report-section-num">📈</div>
+          <div class="report-section-info">
+            <div class="report-section-title">趋势分析</div>
+            <div class="report-section-desc">本周数据解读</div>
+          </div>
+        </div>
+
+        <div class="report-grid">
+          <div class="report-card">
+            <div class="report-card-title">政策文章占比上升</div>
+            <div class="report-card-text">本周政策类文章占比35%，较上周提升7个百分点，反映监管关注度持续升温。</div>
+          </div>
+          <div class="report-card">
+            <div class="report-card-title">市场信心指数</div>
+            <div class="report-card-text">基于文章情感分析，本周市场信心指数为72（较上周+5），处于乐观区间。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Monthly Report Page -->
+  <div id="page-monthly" class="page">
+    <div class="report-hero">
+      <div class="report-hero-title">2026年7月</div>
+      <div class="report-hero-sub">保理与供应链金融行业月刊</div>
+      <div class="report-meta">
+        <div class="report-meta-item">📅 2026-07-01 至 2026-07-31</div>
+        <div class="report-meta-item">📄 本月收录 486 篇</div>
+        <div class="report-meta-item">👥 编委会：田江涛 律师（主编）</div>
+      </div>
+    </div>
+
+    <div class="report-content">
+      <!-- 月度概览 -->
+      <div class="month-overview">
+        <div class="month-overview-title">📊 本月概览</div>
+        <div class="month-stats">
+          <div class="month-stat">
+            <span class="month-stat-value">5</span>
+            <div class="month-stat-label">重要政策</div>
+          </div>
+          <div class="month-stat">
+            <span class="month-stat-value">68</span>
+            <div class="month-stat-label">ABS项目</div>
+          </div>
+          <div class="month-stat">
+            <span class="month-stat-value">12</span>
+            <div class="month-stat-label">风险案例</div>
+          </div>
+          <div class="month-stat">
+            <span class="month-stat-value">9</span>
+            <div class="month-stat-label">创新实践</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 第一部分：前沿解读 -->
+      <div class="report-section">
+        <div class="report-section-header">
+          <div class="report-section-num">01</div>
+          <div class="report-section-info">
+            <div class="report-section-title">前沿解读</div>
+            <div class="report-section-desc">深度分析本月重要政策与市场变化</div>
+          </div>
+        </div>
+
+        <div class="insight-box">
+          <div class="insight-title">银保监会《商业保理公司监督管理办法》修订草案深度解读</div>
+          <div class="insight-text">
+            <p><strong>主要变化：</strong></p>
+            <p style="margin-top: 8px;">1. 注册资本门槛从5000万元提高至1亿元</p>
+            <p>2. 新增股东资质审查要求，限制关联交易</p>
+            <p>3. 强化信息披露义务，要求按月报送经营数据</p>
+            <p>4. 新增风险管理指标，杠杆率不得超过10倍</p>
+            <p style="margin-top: 12px;"><strong>影响分析：</strong>预计30%的商业保理公司将面临整改，行业集中度将进一步提升。</p>
+          </div>
+        </div>
+
+        <div class="report-article">
+          <div class="report-article-title">【深度】供应链金融新规对保理行业的影响分析</div>
+          <div class="report-article-meta">
+            <span>Factoring HOT 研究组</span>
+            <span>·</span>
+            <span>深度解读</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 第二部分：行业前沿模式 -->
+      <div class="report-section">
+        <div class="report-section-header">
+          <div class="report-section-num">02</div>
+          <div class="report-section-info">
+            <div class="report-section-title">行业前沿模式</div>
+            <div class="report-section-desc">行业创新实践与新模式探索</div>
+          </div>
+        </div>
+
+        <div class="report-article">
+          <div class="report-article-title">区块链技术在北京保理协会试点应用，实现应收账款确权上链</div>
+          <div class="report-article-meta">
+            <span>北京保理协会</span>
+            <span>·</span>
+            <span>2026-07-15</span>
+          </div>
+        </div>
+
+        <div class="report-article">
+          <div class="report-article-title">某央企供应链平台上线电子债权凭证，实现核心企业信用多级流转</div>
+          <div class="report-article-meta">
+            <span>供应链金融</span>
+            <span>·</span>
+            <span>2026-07-18</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 第三部分：前沿监管新闻 -->
+      <div class="report-section">
+        <div class="report-section-header">
+          <div class="report-section-num">03</div>
+          <div class="report-section-info">
+            <div class="report-section-title">前沿监管新闻</div>
+            <div class="report-section-desc">监管政策动态与合规要求</div>
+          </div>
+        </div>
+
+        <div class="report-article">
+          <div class="report-article-title">十部门联合印发《促进和规范电子单证应用规定》</div>
+          <div class="report-article-meta">
+            <span>发改委等十部门</span>
+            <span>·</span>
+            <span>2026-07-05</span>
+          </div>
+        </div>
+
+        <div class="report-article">
+          <div class="report-article-title">国家金融监督管理总局办公厅关于做好2026年小微企业金融服务工作的通知</div>
+          <div class="report-article-meta">
+            <span>金融监管总局</span>
+            <span>·</span>
+            <span>2026-07-12</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 第四部分：前沿争议解决 -->
+      <div class="report-section">
+        <div class="report-section-header">
+          <div class="report-section-num">04</div>
+          <div class="report-section-info">
+            <div class="report-section-title">前沿争议解决</div>
+            <div class="report-section-desc">典型案例分析与企业维权指引</div>
+          </div>
+        </div>
+
+        <div class="report-article">
+          <div class="report-article-title">【典型案例】某保理公司与债务人对应收账款真实性争议案</div>
+          <div class="report-article-meta">
+            <span>最高人民法院</span>
+            <span>·</span>
+            <span>2026-07-10</span>
+          </div>
+        </div>
+
+        <div class="insight-box">
+          <div class="insight-title">本月争议解决特点</div>
+          <div class="insight-text">
+            <p>1. 应收账款真实性争议仍是主要纠纷类型</p>
+            <p>2. 保理合同效力认定标准趋于严格</p>
+            <p>3. 债权转让通知的形式要求被进一步强调</p>
+            <p>4. 电子债权凭证的法律效力得到司法确认</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 第五部分：前沿规范文件 -->
+      <div class="report-section">
+        <div class="report-section-header">
+          <div class="report-section-num">05</div>
+          <div class="report-section-info">
+            <div class="report-section-title">前沿规范文件</div>
+            <div class="report-section-desc">新规全文与官方解读</div>
+          </div>
+        </div>
+
+        <div class="report-article">
+          <div class="report-article-title">商业保理公司监督管理办法（修订草案征求意见稿）</div>
+          <div class="report-article-meta">
+            <span>银保监会</span>
+            <span>·</span>
+            <span>2026-07-03 发布</span>
+          </div>
+        </div>
+
+        <div class="report-article">
+          <div class="report-article-title">应收账款质押登记办法（修订版）</div>
+          <div class="report-article-meta">
+            <span>人民银行</span>
+            <span>·</span>
+            <span>2026-07-15 施行</span>
+          </div>
+        </div>
+
+        <div class="insight-box">
+          <div class="insight-title">编委会提示</div>
+          <div class="insight-text">
+            本期月刊收录的规范文件均为2026年7月新发布或施行的重要监管文件。建议保理公司合规负责人重点关注《商业保理公司监督管理办法》修订草案，提前做好应对准备。
+          </div>
+        </div>
+      </div>
+
+      <!-- 编委会名单 -->
+      <div class="report-section">
+        <div class="report-section-header">
+          <div class="report-section-num">👥</div>
+          <div class="report-section-info">
+            <div class="report-section-title">编委会名单</div>
+            <div class="report-section-desc">Factoring HOT 月刊编委会</div>
+          </div>
+        </div>
+
+        <div class="report-grid">
+          <div class="report-card">
+            <div class="report-card-title">主编</div>
+            <div class="report-card-text">田江涛（北京德和衡（上海）律师事务所）</div>
+          </div>
+          <div class="report-card">
+            <div class="report-card-title">副主编</div>
+            <div class="report-card-text">万典、程冰露、杨杰、朱嘉程</div>
+          </div>
+          <div class="report-card">
+            <div class="report-card-title">编辑成员</div>
+            <div class="report-card-text">陈怡然、杨梦婷、洪健、刘雷</div>
+          </div>
+          <div class="report-card">
+            <div class="report-card-title">联系方式</div>
+            <div class="report-card-text">电话：18516208227</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Archive Page -->
+  <div id="page-archive" class="page">
+    <div style="background: #050505; padding: 48px 40px; color: #FFFFFF;">
+      <div style="max-width: 1200px; margin: 0 auto;">
+        <div style="font-size: 48px; font-weight: 900; color: #FFC832; letter-spacing: -0.03em; line-height: 1.1;">往期报告</div>
+        <div style="font-size: 18px; color: #FFFFFF; opacity: 0.7; margin-top: 8px;">浏览历史周报、月刊</div>
+      </div>
+    </div>
+
+    <div class="report-content">
+      <div class="tab-bar">
+        <button class="tab-item active">周报</button>
+        <button class="tab-item">月刊</button>
+      </div>
+
+      <div class="archive-list">
+        <div class="archive-item">
+          <div class="archive-date">2026 · 第27周</div>
+          <div class="archive-title">保理监管新规征求意见，行业影响深度分析</div>
+          <div class="archive-download">下载 PDF</div>
+        </div>
+        <div class="archive-item">
+          <div class="archive-date">2026 · 第26周</div>
+          <div class="archive-title">供应链ABS创新高，核心企业参与度提升</div>
+          <div class="archive-download">下载 PDF</div>
+        </div>
+        <div class="archive-item">
+          <div class="archive-date">2026 · 第25周</div>
+          <div class="archive-title">应收账款质押登记系统升级，便利化措施落地</div>
+          <div class="archive-download">下载 PDF</div>
+        </div>
+        <div class="archive-item">
+          <div class="archive-date">2026 · 7月</div>
+          <div class="archive-title">月度报告：保理行业进入强监管周期</div>
+          <div class="archive-download">下载 PDF</div>
+        </div>
+        <div class="archive-item">
+          <div class="archive-date">2026 · 6月</div>
+          <div class="archive-title">月度报告：供应链金融创新试点扩大</div>
+          <div class="archive-download">下载 PDF</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+      <div>
+        <div style="font-size: 18px; font-weight: 700; color: #FFC832; margin-bottom: 8px;">Factoring HOT</div>
+        <div style="font-size: 14px; color: #5C5C5C;">保理与供应链金融行业资讯平台</div>
+      </div>
+      <div style="font-size: 14px; color: #5C5C5C;">© 2026 Factoring HOT · 北京德和衡（上海）律师事务所</div>
+    </div>
+  </div>
+
+  <script>
+    // Page navigation
+    document.querySelectorAll('.nav-item').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var pageId = this.getAttribute('data-page');
+        showPage(pageId);
+      });
+    });
+
+    function showPage(pageId) {
+      // Hide all pages
+      document.querySelectorAll('.page').forEach(function(page) {
+        page.classList.remove('active');
+      });
+      
+      // Show selected page
+      document.getElementById('page-' + pageId).classList.add('active');
+      
+      // Update nav
+      document.querySelectorAll('.nav-item').forEach(function(item) {
+        item.classList.remove('active');
+      });
+      document.querySelector('.nav-item[data-page="' + pageId + '"]').classList.add('active');
+      
+      // Scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Category filter
+    document.querySelectorAll('.cat-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.cat-btn').forEach(function(b) {
+          b.classList.remove('active');
+        });
+        this.classList.add('active');
+      });
+    });
+
+    // Tab bar
+    document.querySelectorAll('.tab-item').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.tab-item').forEach(function(b) {
+          b.classList.remove('active');
+        });
+        this.classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>

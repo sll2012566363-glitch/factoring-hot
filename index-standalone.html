@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>保理HOT - 保理与供应链金融资讯热榜</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; background: #F8F9FA; color: #1a1a1a; min-height: 100vh; }
+
+  /* 顶部导航 */
+  .header { position: sticky; top: 0; z-index: 50; background: #FFFFFF; border-bottom: 1px solid #E5E7EB; }
+  .header-inner { max-width: 1100px; margin: 0 auto; padding: 0 20px; height: 56px; display: flex; align-items: center; justify-content: space-between; }
+  .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #1a1a1a; }
+  .logo-icon { width: 32px; height: 32px; background: linear-gradient(135deg, #FFC832 0%, #F59E0B 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #1a1a1a; font-weight: 900; font-size: 15px; }
+  .logo-text { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+  .nav { display: flex; align-items: center; gap: 4px; }
+  .nav a { padding: 6px 14px; border-radius: 8px; font-size: 13.5px; font-weight: 500; color: #6B7280; text-decoration: none; transition: all 0.15s; }
+  .nav a:hover { color: #1a1a1a; background: #F3F4F6; }
+  .nav a.active { color: #1a1a1a; background: #F3F4F6; font-weight: 600; }
+
+  /* 主容器 */
+  .main { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  /* 日报页 */
+  .hero { background: linear-gradient(135deg, #1a1a2e 0%, #0a0a0a 100%); border-radius: 16px; padding: 40px 44px; margin-bottom: 28px; position: relative; overflow: hidden; }
+  .hero::before { content: ''; position: absolute; top: -60px; right: -60px; width: 200px; height: 200px; background: rgba(255,200,50,0.08); border-radius: 50%; }
+  .hero-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,200,50,0.15); color: #FFC832; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 20px; margin-bottom: 16px; border: 1px solid rgba(255,200,50,0.2); }
+  .hero-title { font-size: 40px; font-weight: 900; color: #FFFFFF; line-height: 1.15; margin-bottom: 10px; letter-spacing: -1px; }
+  .hero-sub { font-size: 15px; color: rgba(255,255,255,0.55); line-height: 1.6; }
+  .hero-date { font-size: 13px; color: rgba(255,255,255,0.4); margin-top: 8px; }
+
+  /* 筛选栏 */
+  .filter-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .filter-btn { padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: 500; border: 1px solid #E5E7EB; background: #FFFFFF; color: #374151; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .filter-btn:hover { border-color: #D1D5DB; background: #F9FAFB; }
+  .filter-btn.active { background: #1a1a1a; color: #FFFFFF; border-color: #1a1a1a; }
+
+  /* 文章卡片 */
+  .article-list { display: flex; flex-direction: column; gap: 12px; }
+  .article-card { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px 24px; display: flex; gap: 16px; align-items: flex-start; transition: all 0.2s; cursor: pointer; text-decoration: none; color: inherit; }
+  .article-card:hover { border-color: #C9CDD3; box-shadow: 0 4px 16px rgba(0,0,0,0.06); transform: translateY(-1px); }
+  .article-rank { font-size: 22px; font-weight: 800; color: #D1D5DB; min-width: 32px; text-align: center; padding-top: 2px; font-variant-numeric: tabular-nums; }
+  .article-rank.top { color: #FFC832; }
+  .article-body { flex: 1; min-width: 0; }
+  .article-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .article-tag { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11.5px; font-weight: 600; }
+  .tag-policy { background: #FEF2F2; color: #DC2626; }
+  .tag-market { background: #EFF6FF; color: #2563EB; }
+  .tag-risk { background: #FFFBEB; color: #D97706; }
+  .tag-innovation { background: #ECFDF5; color: #059669; }
+  .article-source { font-size: 12.5px; color: #6B7280; }
+  .article-time { font-size: 12px; color: #9CA3AF; }
+  .article-title { font-size: 15.5px; font-weight: 600; color: #1a1a1a; line-height: 1.55; margin-bottom: 8px; }
+  .article-title:hover { color: #2563EB; }
+  .article-summary { font-size: 13.5px; color: #6B7280; line-height: 1.65; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 10px; }
+  .article-footer { display: flex; align-items: center; gap: 12px; }
+  .article-score { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: #D97706; background: #FFFBEB; padding: 3px 8px; border-radius: 6px; }
+  .article-words { font-size: 12px; color: #9CA3AF; }
+
+  /* 周报/月刊/往期页 */
+  .page-section { display: none; }
+  .page-section.active { display: block; }
+
+  /* 周报 */
+  .week-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .week-stat { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px; text-align: center; }
+  .week-stat-num { font-size: 32px; font-weight: 900; color: #1a1a1a; line-height: 1; }
+  .week-stat-label { font-size: 13px; color: #6B7280; margin-top: 6px; }
+  .section-title { font-size: 20px; font-weight: 800; color: #1a1a1a; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .insight-box { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 24px; margin-bottom: 16px; }
+  .insight-box h3 { font-size: 16px; font-weight: 700; color: #1a1a1a; margin-bottom: 10px; }
+  .insight-box p { font-size: 14px; color: #4B5563; line-height: 1.7; }
+
+  /* 月刊 */
+  .month-hero { background: linear-gradient(135deg, #1a1a2e 0%, #0a0a0a 100%); border-radius: 16px; padding: 44px; margin-bottom: 32px; color: #FFFFFF; }
+  .month-number { font-size: 64px; font-weight: 900; line-height: 1; color: #FFC832; }
+  .month-label { font-size: 16px; color: rgba(255,255,255,0.5); margin-top: 4px; }
+  .section-card { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 28px; margin-bottom: 20px; }
+  .section-card h2 { font-size: 17px; font-weight: 700; color: #1a1a1a; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #F3F4F6; display: flex; align-items: center; gap: 8px; }
+  .section-card ul { list-style: none; }
+  .section-card li { padding: 10px 0; border-bottom: 1px solid #F9FAFB; font-size: 14px; color: #374151; line-height: 1.6; display: flex; align-items: flex-start; gap: 8px; }
+  .section-card li:last-child { border-bottom: none; }
+  .li-dot { width: 6px; height: 6px; min-width: 6px; border-radius: 50%; background: #D1D5DB; margin-top: 8px; }
+  .li-dot.policy { background: #EF4444; }
+  .li-dot.market { background: #3B82F6; }
+  .li-dot.risk { background: #F59E0B; }
+  .li-dot.innovation { background: #10B981; }
+
+  /* 往期 */
+  .archive-list { display: flex; flex-direction: column; gap: 12px; }
+  .archive-item { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .archive-item:hover { border-color: #C9CDD3; }
+  .archive-meta { display: flex; align-items: center; gap: 12px; }
+  .archive-date { font-size: 15px; font-weight: 700; color: #1a1a1a; }
+  .archive-type { font-size: 12px; color: #6B7280; }
+  .archive-download { font-size: 13px; color: #2563EB; text-decoration: none; font-weight: 500; }
+  .archive-download:hover { text-decoration: underline; }
+
+  /* Footer */
+  .footer { max-width: 1100px; margin: 0 auto; padding: 32px 20px; text-align: center; font-size: 13px; color: #9CA3AF; border-top: 1px solid #F3F4F6; }
+
+  @media (max-width: 700px) {
+    .hero { padding: 28px 20px; }
+    .hero-title { font-size: 28px; }
+    .week-grid { grid-template-columns: repeat(2, 1fr); }
+    .article-card { flex-direction: column; gap: 8px; padding: 16px; }
+    .article-rank { display: none; }
+    .nav { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<header class="header">
+  <div class="header-inner">
+    <a class="logo" href="#" onclick="switchPage('daily'); return false;">
+      <div class="logo-icon">保</div>
+      <span class="logo-text">保理HOT</span>
+    </a>
+    <nav class="nav">
+      <a href="#" id="nav-daily" class="active" onclick="switchPage('daily'); return false;">日报</a>
+      <a href="#" id="nav-weekly" onclick="switchPage('weekly'); return false;">周报</a>
+      <a href="#" id="nav-monthly" onclick="switchPage('monthly'); return false;">月刊</a>
+      <a href="#" id="nav-archive" onclick="switchPage('archive'); return false;">往期</a>
+    </nav>
+  </div>
+</header>
+
+<!-- 主内容 -->
+<div class="main">
+
+  <!-- ========== 日报页 ========== -->
+  <div id="page-daily" class="page-section active">
+
+    <!-- Hero -->
+    <div class="hero">
+      <div class="hero-badge">🔥 今日热榜</div>
+      <div class="hero-title">保理与供应链金融<br>今日资讯热榜</div>
+      <div class="hero-sub">基于 20+ 权威信源 · AI 实时评分 · 四大维度筛选</div>
+      <div class="hero-date" id="today-date"></div>
+    </div>
+
+    <!-- 分类筛选 -->
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterCategory(null, this)">全部</button>
+      <button class="filter-btn" onclick="filterCategory('policy', this)">📋 政策监管</button>
+      <button class="filter-btn" onclick="filterCategory('market', this)">📊 市场动态</button>
+      <button class="filter-btn" onclick="filterCategory('risk', this)">⚠️ 风险预警</button>
+      <button class="filter-btn" onclick="filterCategory('innovation', this)">💡 业务创新</button>
+    </div>
+
+    <!-- 文章列表 -->
+    <div class="article-list" id="article-list"></div>
+  </div>
+
+  <!-- ========== 周报页 ========== -->
+  <div id="page-weekly" class="page-section">
+    <div style="background:linear-gradient(135deg,#1a1a2e,#0a0a0a);border-radius:16px;padding:40px 44px;margin-bottom:32px;color:#fff;position:relative;overflow:hidden;">
+      <div style="font-size:13px;color:rgba(255,200,50,0.7);font-weight:600;margin-bottom:8px;">📊 本周周报</div>
+      <div style="font-size:36px;font-weight:900;line-height:1.1;margin-bottom:6px;">保理与供应链金融<br>第<span id="week-num"></span>周周报</div>
+      <div style="font-size:14px;color:rgba(255,255,255,0.45);" id="week-date-range"></div>
+    </div>
+
+    <div class="week-grid">
+      <div class="week-stat"><div class="week-stat-num" style="color:#EF4444;">6</div><div class="week-stat-label">政策监管动态</div></div>
+      <div class="week-stat"><div class="week-stat-num" style="color:#3B82F6;">12</div><div class="week-stat-label">市场动态资讯</div></div>
+      <div class="week-stat"><div class="week-stat-num" style="color:#F59E0B;">4</div><div class="week-stat-label">风险预警事件</div></div>
+      <div class="week-stat"><div class="week-stat-num" style="color:#10B981;">8</div><div class="week-stat-label">业务创新案例</div></div>
+    </div>
+
+    <div class="section-title">💡 本周热点洞察</div>
+    <div class="insight-box">
+      <h3>银保监会《商业保理企业管理办法》修订草案公布</h3>
+      <p>本周最重磅政策信号。修订草案在业务范围、杠杆倍数、集中度管理等方面均有重大调整，预计将深刻影响行业格局。重点包括：明确保理公司可开展"再保理"业务；杠杆倍数上限从10倍调整为8倍；强化对"名保实贷"的监管认定标准。</p>
+    </div>
+    <div class="insight-box">
+      <h3>供应链ABS发行规模创单周新高</h3>
+      <p>本周共有9单供应链ABS发行，总规模达387亿元，创单周历史新高。核心企业以建筑工程和新能源汽车产业链为主，反映实体产业融资需求持续旺盛。</p>
+    </div>
+
+    <div class="section-title" style="margin-top:32px;">📈 本周趋势</div>
+    <div class="insight-box">
+      <p>政策维度：监管趋严信号明显，预计下半年合规成本上升。<br>市场维度：ABS发行利率持续下行，当前平均票面利率2.87%。<br>创新维度：AI+保理应用加速，3家头部保理公司宣布接入大模型。</p>
+    </div>
+  </div>
+
+  <!-- ========== 月刊页 ========== -->
+  <div id="page-monthly" class="page-section">
+    <div class="month-hero">
+      <div class="month-number">六月刊</div>
+      <div class="month-label">2026年7月5日 · 总第3期</div>
+    </div>
+
+    <!-- 第一部分：前沿解读 -->
+    <div class="section-card">
+      <h2>🔍 第一部分：前沿解读</h2>
+      <ul>
+        <li><span class="li-dot policy"></span>银保监会《商业保理企业管理办法（修订草案）》深度解读：从"名保实贷"到"再保理"的业务边界重构</li>
+        <li><span class="li-dot market"></span>2026年上半年供应链金融ABS市场回顾：发行规模、利率走势与底层资产质量分析</li>
+        <li><span class="li-dot innovation"></span>AI大模型在保理风控中的应用前景：从信用评分到贸易背景真实性核验的技术路径</li>
+      </ul>
+    </div>
+
+    <!-- 第二部分：行业前沿模式 -->
+    <div class="section-card">
+      <h2>🏭 第二部分：行业前沿模式</h2>
+      <ul>
+        <li><span class="li-dot innovation"></span>区块链电子债权凭证平台：某市试点"政银企"三方上链，应收账款确权时间缩短80%</li>
+        <li><span class="li-dot market"></span>新能源汽车产业链保理新模式：电池厂商→整车厂→经销商的全链条融资方案</li>
+        <li><span class="li-dot innovation"></span>跨境电商保理：针对亚马逊/速卖通卖家的"平台数据+保理融资"产品创新</li>
+      </ul>
+    </div>
+
+    <!-- 第三部分：前沿监管新闻 -->
+    <div class="section-card">
+      <h2>📋 第三部分：前沿监管新闻</h2>
+      <ul>
+        <li><span class="li-dot policy"></span>十部门联合发布《电子单证应用管理规定》，明确电子应收账款凭证法律地位（施行日期：2026年9月1日）</li>
+        <li><span class="li-dot policy"></span>国家金融监督管理总局发布《关于加强商业保理企业异地经营监管的通知》</li>
+        <li><span class="li-dot policy"></span>多地金融局开展商业保理公司现场检查，重点核查资金来源和杠杆倍数</li>
+      </ul>
+    </div>
+
+    <!-- 第四部分：前沿争议解决 -->
+    <div class="section-card">
+      <h2>⚖️ 第四部分：前沿争议解决</h2>
+      <ul>
+        <li><span class="li-dot risk"></span>典型案例：（2026）最高法民终XX号 —— 应收账款多重转让的优先权认定规则</li>
+        <li><span class="li-dot risk"></span>案例评析：保理合同中的"所有权保留"条款在破产程序中的效力认定</li>
+        <li><span class="li-dot risk"></span>2026年上半年保理合同纠纷案件特点：涉及房地产关联方的案件占比下降至18%（去年同期32%）</li>
+      </ul>
+    </div>
+
+    <!-- 第五部分：前沿规范文件 -->
+    <div class="section-card">
+      <h2>📄 第五部分：前沿规范文件</h2>
+      <ul>
+        <li><span class="li-dot policy"></span>《商业保理企业管理办法（修订草案征求意见稿）》—— 银保监会，2026年6月</li>
+        <li><span class="li-dot policy"></span>《电子单证应用管理规定》—— 商务部等十部门，2026年5月</li>
+        <li><span class="li-dot policy"></span>《供应链金融业务风险管理指引》—— 中国银行业协会，2026年4月</li>
+      </ul>
+    </div>
+
+    <!-- 编委会 -->
+    <div class="section-card" style="background:#F9FAFB;border-color:#E5E7EB;">
+      <h2>👥 编委会</h2>
+      <p style="font-size:14px;color:#4B5563;line-height:1.8;">
+        <strong>主编：</strong>田江涛<br>
+        <strong>副主编：</strong>沈龙龙（Leo）<br>
+        <strong>编辑：</strong>德和衡保理研究中心全体成员<br>
+        <strong>联系：</strong>leo.shen@deheheng.com
+      </p>
+    </div>
+  </div>
+
+  <!-- ========== 往期页 ========== -->
+  <div id="page-archive" class="page-section">
+    <div style="margin-bottom:28px;">
+      <div style="font-size:24px;font-weight:800;color:#1a1a1a;margin-bottom:6px;">往期归档</div>
+      <div style="font-size:14px;color:#6B7280;">日报 / 周报 / 月刊 历史文件下载</div>
+    </div>
+
+    <div class="archive-list">
+      <div class="archive-item">
+        <div class="archive-meta">
+          <div class="archive-date">2026年7月 月刊</div>
+          <div class="archive-type">月刊 · 第3期</div>
+        </div>
+        <a class="archive-download" href="#">下载 PDF →</a>
+      </div>
+      <div class="archive-item">
+        <div class="archive-meta">
+          <div class="archive-date">2026年第26周 周报</div>
+          <div class="archive-type">周报 · 6月23日-6月29日</div>
+        </div>
+        <a class="archive-download" href="#">下载 PDF →</a>
+      </div>
+      <div class="archive-item">
+        <div class="archive-meta">
+          <div class="archive-date">2026年6月 月刊</div>
+          <div class="archive-type">月刊 · 第2期</div>
+        </div>
+        <a class="archive-download" href="#">下载 PDF →</a>
+      </div>
+      <div class="archive-item">
+        <div class="archive-meta">
+          <div class="archive-date">2026年第22-25周 周报</div>
+          <div class="archive-type">周报 · 4期</div>
+        </div>
+        <a class="archive-download" href="#">下载 PDF →</a>
+      </div>
+      <div class="archive-item">
+        <div class="archive-meta">
+          <div class="archive-date">2026年5月 月刊</div>
+          <div class="archive-type">月刊 · 第1期</div>
+        </div>
+        <a class="archive-download" href="#">下载 PDF →</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  保理HOT · 北京德和衡（上海）律师事务所 保理研究中心<br>
+  数据来源：国家金融监督管理总局 · 最高人民法院 · 中国服务贸易协会商业保理专委会 · Wind资讯
+</div>
+
+<script>
+// ========== 文章数据 ==========
+const ARTICLES = [
+  { id:1, title:'银保监会发布《商业保理企业管理办法（修订草案征求意见稿）》', summary:'为规范商业保理企业经营行为，加强监督管理，防范化解风险，促进商业保理行业健康发展，银保监会会同人民银行等部门起草了修订草案，现向社会公开征求意见。主要修订内容包括：明确再保理业务规则、调整杠杆倍数上限至8倍、强化"名保实贷"监管认定标准。', link:'#', category:'policy', source:'国家金融监督管理总局', score:95, words:3200, time:0 },
+  { id:2, title:'2026年第一季度全国商业保理业务量同比增长18.7%', summary:'据中国服务贸易协会商业保理专业委员会统计，2026年第一季度全国商业保理业务量达1.2万亿元，同比增长18.7%，继续保持稳健增长态势。其中，建筑工程、汽车制造、电子信息三大行业贡献主要增量。', link:'#', category:'market', source:'中国服务贸易协会商业保理专委会', score:88, words:2100, time:2 },
+  { id:3, title:'某地产集团旗下保理公司涉嫌违规融资被立案调查', summary:'近日，某地金融监管部门对某大型地产集团旗下的商业保理公司立案调查，原因涉嫌通过保理业务违规向房地产开发项目提供融资，规避房地产融资监管政策。该案涉及应收账款规模约47亿元。', link:'#', category:'risk', source:'21世纪经济报道', score:92, words:1800, time:4 },
+  { id:4, title:'区块链+保理：某银行推出基于联盟链的应收账款融资平台', summary:'某股份制银行近日宣布推出基于联盟链技术的应收账款融资平台，实现核心企业、供应商、保理公司、资金方四方数据实时上链，将融资放款时间从平均3天缩短至4小时，单据审核效率提升约15倍。', link:'#', category:'innovation', source:'金融时报', score:85, words:2600, time:6 },
+  { id:5, title:'最高法院发布保理合同纠纷典型案例（第六批）', summary:'最高人民法院发布第六批保理合同纠纷典型案例，涉及应收账款虚假转让、明保实贷认定、多重转让优先权等争议焦点，为各级法院审理此类案件提供裁判指引。其中明确：应收账款转让通知送达债务人即对其发生效力，不以债务人对转让事宜确认为前提。', link:'#', category:'policy', source:'最高人民法院', score:90, words:4500, time:8 },
+  { id:6, title:'供应链ABS发行规模创历史新高，2026年上半年突破5000亿元', summary:'据Wind数据统计，2026年上半年供应链资产支持专项计划（ABS）发行规模达5120亿元，同比增长32%，创历史新高。其中，建筑工程、汽车制造、电子信息三大行业贡献主要增量，平均票面利率2.87%，较去年同期下降42BP。', link:'#', category:'market', source:'Wind资讯', score:87, words:1900, time:10 },
+  { id:7, title:'多地金融监管局提示商业保理涉众风险，警惕"保理理财"骗局', summary:'近期，多地地方金融监管局连续发布风险提示，指出市场上出现以"商业保理收益权转让""保理理财"为名，实质开展非法集资活动的机构，提醒社会公众提高警惕，注意甄别。此类机构通常承诺8%-15%的年化收益，涉嫌非法吸收公众存款。', link:'#', category:'risk', source:'地方金融监管局', score:94, words:1500, time:12 },
+  { id:8, title:'AI+保理：某科技公司发布智能保理风控大模型，违约预测准确率达92%', summary:'某头部金融科技公司发布专注于商业保理场景的智能风控大模型，基于超过200万笔历史保理业务数据训练，实现融资申请人信用评分、贸易背景真实性核验、贷后预警等全流程AI化。测试结果显示，违约预测准确率达92.3%，较传统评分卡模型提升约18个百分点。', link:'#', category:'innovation', source:'金融科技研究', score:82, words:2300, time:14 },
+];
+
+const CATEGORY_NAMES = { policy:'政策监管', market:'市场动态', risk:'风险预警', innovation:'业务创新' };
+const CATEGORY_CLASS = { policy:'tag-policy', market:'tag-market', risk:'tag-risk', innovation:'tag-innovation' };
+
+// ========== 渲染文章列表 ==========
+function renderArticles(category = null) {
+  const list = document.getElementById('article-list');
+  const filtered = category ? ARTICLES.filter(a => a.category === category) : ARTICLES;
+  list.innerHTML = filtered.map((a, i) => `
+    <a class="article-card" href="${a.link}" target="_blank" rel="noopener">
+      <div class="article-rank ${i < 3 ? 'top' : ''}">${i + 1}</div>
+      <div class="article-body">
+        <div class="article-meta">
+          <span class="article-tag ${CATEGORY_CLASS[a.category]}">${CATEGORY_NAMES[a.category]}</span>
+          <span class="article-source">${a.source}</span>
+          <span class="article-time">· ${formatTime(a.time)}</span>
+        </div>
+        <div class="article-title">${a.title}</div>
+        <div class="article-summary">${a.summary}</div>
+        <div class="article-footer">
+          <span class="article-score">🔥 ${a.score} 分</span>
+          <span class="article-words">${a.words} 字</span>
+        </div>
+      </div>
+    </a>
+  `).join('');
+}
+
+function formatTime(hoursAgo) {
+  if (hoursAgo === 0) return '刚刚';
+  if (hoursAgo < 24) return hoursAgo + '小时前';
+  return Math.floor(hoursAgo / 24) + '天前';
+}
+
+// ========== 分类筛选 ==========
+function filterCategory(category, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderArticles(category);
+}
+
+// ========== 页面切换 ==========
+function switchPage(page) {
+  document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById('nav-' + page).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+// ========== 初始化 ==========
+function init() {
+  // 设置今天日期
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
+  document.getElementById('today-date').textContent = dateStr + ' · 今日已更新 8 篇';
+
+  // 设置周报日期
+  const weekNum = Math.ceil((now.getDate() + new Date(now.getFullYear(), now.getMonth(), 1).getDay() - 1) / 7);
+  document.getElementById('week-num').textContent = weekNum;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (now.getDay() || 7) + 1);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  document.getElementById('week-date-range').textContent =
+    `${monday.getMonth()+1}月${monday.getDate()}日 — ${sunday.getMonth()+1}月${sunday.getDate()}日`;
+
+  // 渲染文章
+  renderArticles();
+}
+
+init();
+</script>
+</body>
+</html>

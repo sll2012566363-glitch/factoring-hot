@@ -1,0 +1,142 @@
+{
+  "dimensions": [
+    {
+      "name": "frontier",
+      "label": "前沿解读",
+      "description": "是否提供行业前沿趋势的深度解读、专业分析",
+      "weight": 0.20,
+      "keywords": [
+        "解读", "深度分析", "趋势", "研究", "观察", "展望",
+        "思考", "探讨", "白皮书", "年度报告", "综述", "评析",
+        "浅析", "探析", "分析", "法律分析", "合规分析",
+        "实务分析", "趋势分析", "研究报告", "专家解读", "行业观察"
+      ]
+    },
+    {
+      "name": "industry_model",
+      "label": "行业前沿模式",
+      "description": "是否涉及业务创新、新模式、市场动态、发行数据",
+      "weight": 0.20,
+      "keywords": [
+        "首单", "首笔", "首批", "首张", "首个", "首家", "首次",
+        "落地", "成功发行", "成功落地", "新模式", "新产品", "新业务",
+        "创新", "突破性", "上线", "推出", "签约", "合作",
+        "ABS", "资产支持", "资产证券化", "数据资产", "数据产品",
+        "科技赋能", "数字化转型", "区块链", "供应链平台"
+      ]
+    },
+    {
+      "name": "regulatory",
+      "label": "前沿监管新闻",
+      "description": "是否涉及监管政策、法规变化、合规要求",
+      "weight": 0.20,
+      "keywords": [
+        "国务院", "央行", "人民银行", "金融监管总局", "银保监会",
+        "证监会", "发改委", "商务部", "财政部", "国资委",
+        "最高人民法院", "最高法", "八部门", "七部门", "多部门",
+        "联合发布", "联合印发", "监管", "合规", "政策"
+      ]
+    },
+    {
+      "name": "dispute",
+      "label": "前沿争议解决",
+      "description": "是否涉及纠纷案例、风险事件、监管处罚、争议解决",
+      "weight": 0.20,
+      "keywords": [
+        "案例", "判决", "裁判", "纠纷", "诉讼", "仲裁",
+        "立案", "审判", "法院判", "高院", "中院",
+        "名为保理实为借贷", "明保实贷", "追索权",
+        "处罚", "行政处罚", "罚款", "违规", "违法",
+        "风险警示", "风险提示", "爆雷", "暴雷", "逾期", "违约"
+      ]
+    },
+    {
+      "name": "normative",
+      "label": "前沿规范文件",
+      "description": "是否为重要规范性文件、行业标准、政策指导",
+      "weight": 0.20,
+      "keywords": [
+        "办法", "规定", "条例", "指引", "规范",
+        "管理办法", "管理规定", "实施细则", "实施意见",
+        "征求意见稿", "修订草案", "公开征求意见",
+        "正式实施", "正式施行", "发布实施",
+        "全文", "全文发布", "全文印发", "监管规则", "行业标准"
+      ]
+    }
+  ],
+  "priorityWeights": {
+    "T1": 1.3,
+    "T1.5": 1.0,
+    "T2": 0.7
+  },
+  "thresholds": {
+    "minScore": 35,
+    "minDimensionScore": 8,
+    "maxArticlesPerDay": 40,
+    "duplicateSimilarity": 0.85,
+    "eventClusterThreshold": 0.75,
+    "boostRecentHours": 24
+  },
+  "dailyReport": {
+    "sections": [
+      {
+        "id": "top_stories",
+        "name": "今日头条",
+        "maxItems": 5,
+        "sortBy": "score",
+        "filter": {
+          "minScore": 60
+        }
+      },
+      {
+        "id": "frontier",
+        "name": "前沿解读",
+        "maxItems": 10,
+        "filter": {
+          "section": "frontier"
+        }
+      },
+      {
+        "id": "industry_model",
+        "name": "行业前沿模式",
+        "maxItems": 10,
+        "filter": {
+          "section": "industry_model"
+        }
+      },
+      {
+        "id": "regulatory",
+        "name": "前沿监管新闻",
+        "maxItems": 10,
+        "filter": {
+          "section": "regulatory"
+        }
+      },
+      {
+        "id": "dispute",
+        "name": "前沿争议解决",
+        "maxItems": 8,
+        "filter": {
+          "section": "dispute"
+        }
+      },
+      {
+        "id": "normative",
+        "name": "前沿规范文件",
+        "maxItems": 8,
+        "filter": {
+          "section": "normative"
+        }
+      },
+      {
+        "id": "depth",
+        "name": "深度解读",
+        "maxItems": 5,
+        "sortBy": "score",
+        "filter": {
+          "minScore": 70
+        }
+      }
+    ]
+  }
+}
