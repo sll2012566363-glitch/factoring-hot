@@ -25,7 +25,7 @@ function getBeijingToday(): string {
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const date = searchParams.get('date') || getBeijingToday();
+  const date = searchParams.get('date');
   const category = searchParams.get('category');
   const limit = parseInt(searchParams.get('limit') || '40');
   const offset = parseInt(searchParams.get('offset') || '0');
@@ -33,11 +33,13 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from('articles')
     .select('*', { count: 'exact' })
-    .gte('pub_date', date)
-    .lte('pub_date', date + 'T23:59:59')
-    .order('score', { ascending: false })
+    .order('score', { ascending: false, nullsLast: true })
     .order('pub_date', { ascending: false })
     .range(offset, offset + limit - 1);
+  
+  if (date) {
+    query = query.gte('pub_date', date).lte('pub_date', date + 'T23:59:59');
+  }
   
   if (category) {
     query = query.eq('category', category);
@@ -52,7 +54,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     articles: articles || [],
     total: count || 0,
-    date
+    date: date || 'all',
   });
 }
 

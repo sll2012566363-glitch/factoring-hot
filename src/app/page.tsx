@@ -4,7 +4,6 @@ import Header from '@/components/Header';
 import CategoryFilter from '@/components/CategoryFilter';
 import DateGroup from '@/components/DateGroup';
 import { useState, useMemo, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 
 const sections = [
   { id: 'frontier',       name: '前沿解读',     icon: '🔍', description: '评分最高的深度分析文章' },
@@ -64,11 +63,6 @@ function groupByDate(articles: any[]): { label: string; articles: any[] }[] {
   }));
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 export default function Home() {
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [articles, setArticles] = useState<any[]>([]);
@@ -78,15 +72,14 @@ export default function Home() {
 
   useEffect(() => {
     async function fetchArticles() {
-      const { data, error } = await supabase
-        .from('articles')
-        .select('*')
-        .order('pub_date', { ascending: false })
-        .limit(500);
-      if (error) {
-        console.error('Failed to fetch articles:', error);
-      } else {
-        setArticles(data || []);
+      try {
+        const res = await fetch('/api/articles?limit=500');
+        if (res.ok) {
+          const data = await res.json();
+          setArticles(data.articles || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch articles:', err);
       }
       setLoading(false);
     }

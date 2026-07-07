@@ -14,14 +14,26 @@ export async function GET(request: NextRequest) {
   const beijingDate = new Date(now.getTime() + beijingOffset);
   const date = searchParams.get('date') || beijingDate.toISOString().split('T')[0];
   
-  const { data: report, error } = await supabase
+  // Try to get report for the specific date
+  let { data: report, error } = await supabase
     .from('daily_reports')
     .select('*')
     .eq('report_date', date)
     .single();
   
+  // If not found, fall back to the most recent report
   if (error || !report) {
-    return NextResponse.json({ error: 'Report not found' }, { status: 404 });
+    const { data: latestReport, error: latestError } = await supabase
+      .from('daily_reports')
+      .select('*')
+      .order('report_date', { ascending: false })
+      .limit(1)
+      .single();
+    
+    if (latestError || !latestReport) {
+      return NextResponse.json({ error: 'Report not found' }, { status: 404 });
+    }
+    report = latestReport;
   }
   
   return NextResponse.json(report);
