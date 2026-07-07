@@ -153,6 +153,92 @@ function WeeklyHeader({ report }: { report: any }) {
   );
 }
 
+function MonthlyOverview({ overview }: { overview: any }) {
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <h3 className="text-base font-semibold text-gray-900 mb-3">月度概览</h3>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+        <div className="bg-blue-50 rounded-lg p-3">
+          <div className="text-2xl font-bold text-blue-600">{overview.total_articles}</div>
+          <div className="text-xs text-blue-500 mt-1">总文章数</div>
+        </div>
+        <div className="bg-green-50 rounded-lg p-3">
+          <div className="text-2xl font-bold text-green-600">{overview.avg_score}</div>
+          <div className="text-xs text-green-500 mt-1">平均评分</div>
+        </div>
+        <div className="bg-purple-50 rounded-lg p-3">
+          <div className="text-2xl font-bold text-purple-600">{overview.by_category?.regulatory || 0}</div>
+          <div className="text-xs text-purple-500 mt-1">监管新闻</div>
+        </div>
+        <div className="bg-orange-50 rounded-lg p-3">
+          <div className="text-2xl font-bold text-orange-600">{overview.by_category?.dispute || 0}</div>
+          <div className="text-xs text-orange-500 mt-1">争议解决</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SectionBlock({ meta, content }: { meta: { label: string; icon: string; part: string }; content: any }) {
+  const articles = content.articles || [];
+  const subsections = content.subsections;
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <span>{meta.icon}</span> {meta.label}
+      </h3>
+
+      {articles.length > 0 && <ArticleList articles={articles} />}
+
+      {subsections && Array.isArray(subsections) && subsections.map((sub: any, i: number) => (
+        <div key={i} className="mt-4">
+          <h4 className="text-sm font-medium text-gray-700 mb-2 pl-2 border-l-2 border-blue-400">
+            {sub.title}
+          </h4>
+          {sub.articles && <ArticleList articles={sub.articles} />}
+        </div>
+      ))}
+
+      {articles.length === 0 && !subsections && (
+        <p className="text-sm text-gray-400">暂无内容</p>
+      )}
+    </div>
+  );
+}
+
+function ArticleList({ articles }: { articles: any[] }) {
+  return (
+    <div className="space-y-2">
+      {articles.map((article: any, i: number) => (
+        <a
+          key={article.id || i}
+          href={article.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block group"
+        >
+          <div className="flex items-start gap-2 p-2 rounded hover:bg-gray-50 transition-colors">
+            <span className="text-xs text-gray-400 mt-0.5 shrink-0 w-4 text-right">{i + 1}</span>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm text-gray-800 group-hover:text-blue-600 transition-colors line-clamp-1">
+                {article.title}
+              </div>
+              <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-400">
+                {article.source_name && <span>{article.source_name}</span>}
+                {article.score != null && (
+                  <span className="text-yellow-600">{Math.round(article.score)}分</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function JsonSection({ data }: { data: any }) {
   if (Array.isArray(data)) {
     return (
       <ul className="space-y-2">
