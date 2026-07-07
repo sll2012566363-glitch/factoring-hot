@@ -25,13 +25,11 @@ function getScoreLabel(score: number): string {
 export default function ArticleCard({ article, categoryName }: ArticleCardProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const now = new Date();
-    const isToday = date.getFullYear() === now.getFullYear()
-      && date.getMonth() === now.getMonth()
-      && date.getDate() === now.getDate();
+    const y = date.getFullYear();
+    const m = date.getMonth() + 1;
+    const d = date.getDate();
     const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-    if (isToday) return time;
-    return `${date.getMonth() + 1}月${date.getDate()}日 ${time}`;
+    return `${y}年${m}月${d}日 ${time}`;
   };
 
   const score = article.score != null ? Math.round(article.score) : null;
