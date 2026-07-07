@@ -26,13 +26,12 @@ export default function ArticleCard({ article, categoryName }: ArticleCardProps)
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    
-    if (hours < 1) return '刚刚';
-    if (hours < 24) return `${hours}小时前`;
-    if (hours < 48) return '昨天';
-    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+    const isToday = date.getFullYear() === now.getFullYear()
+      && date.getMonth() === now.getMonth()
+      && date.getDate() === now.getDate();
+    const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    if (isToday) return time;
+    return `${date.getMonth() + 1}月${date.getDate()}日 ${time}`;
   };
 
   const score = article.score != null ? Math.round(article.score) : null;
