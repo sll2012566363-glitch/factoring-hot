@@ -33,7 +33,7 @@ export default function AllArticles() {
   const PAGE_SIZE = 50;
 
   useEffect(() => {
-    async function fetchArticles(reset = false) {
+    const fetchArticles = async (reset = false) => {
       setLoading(true);
       try {
         const offset = reset ? 0 : (page - 1) * PAGE_SIZE;
@@ -54,7 +54,7 @@ export default function AllArticles() {
         console.error('Failed to fetch articles:', err);
       }
       setLoading(false);
-    }
+    };
     fetchArticles(true);
     setPage(1);
   }, [selectedSection]);
@@ -65,7 +65,7 @@ export default function AllArticles() {
 
   useEffect(() => {
     if (page > 1 && !loading) {
-      async function fetchMore() {
+      const fetchMore = async () => {
         setLoading(true);
         try {
           const offset = (page - 1) * PAGE_SIZE;
@@ -86,7 +86,7 @@ export default function AllArticles() {
           console.error('Failed to fetch more articles:', err);
         }
         setLoading(false);
-      }
+      };
       fetchMore();
     }
   }, [page]);
