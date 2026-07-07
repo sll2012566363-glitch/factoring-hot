@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from('articles')
     .select('*', { count: 'exact' })
-    .order('score', { ascending: false, nullsLast: true })
+    .order('score', { ascending: false })
     .order('pub_date', { ascending: false })
     .range(offset, offset + limit - 1);
   
