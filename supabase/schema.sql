@@ -107,6 +107,39 @@ COMMENT ON COLUMN events.article_count IS '该事件包含的文章数量';
 COMMENT ON COLUMN events.importance_score IS '事件重要性评分（基于文章评分和数量）';
 
 -- ========================================
+-- Table 3b: Topic Clusters (话题聚类 - bigram Jaccard)
+-- ========================================
+CREATE TABLE IF NOT EXISTS topic_clusters (
+  id TEXT PRIMARY KEY,
+  primary_article_id UUID REFERENCES articles(id),
+  primary_title TEXT NOT NULL,
+  primary_excerpt TEXT,
+  primary_score DECIMAL(5,2),
+  primary_link TEXT NOT NULL,
+  primary_source TEXT,
+  primary_category TEXT,
+  related_article_ids UUID[],
+  related_count INTEGER NOT NULL DEFAULT 0,
+  source_count INTEGER NOT NULL DEFAULT 1,
+  unique_sources TEXT[],
+  max_score DECIMAL(5,2),
+  avg_score DECIMAL(5,2),
+  cluster_date DATE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_topic_clusters_date ON topic_clusters(cluster_date DESC);
+CREATE INDEX idx_topic_clusters_score ON topic_clusters(max_score DESC);
+CREATE INDEX idx_topic_clusters_source_count ON topic_clusters(source_count DESC);
+
+COMMENT ON TABLE topic_clusters IS '话题聚类表（bigram Jaccard相似度聚类）';
+COMMENT ON COLUMN topic_clusters.primary_article_id IS '聚类中评分最高的文章ID';
+COMMENT ON COLUMN topic_clusters.related_article_ids IS '聚类中其他相关文章ID列表';
+COMMENT ON COLUMN topic_clusters.source_count IS '覆盖的不同信源数量';
+COMMENT ON COLUMN topic_clusters.cluster_date IS '聚类生成日期';
+
+-- ========================================
 -- Table 4: Daily Reports (日报)
 -- ========================================
 CREATE TABLE IF NOT EXISTS daily_reports (
@@ -251,6 +284,7 @@ CREATE TRIGGER update_articles_updated_at BEFORE UPDATE ON articles
 ALTER TABLE sources ENABLE ROW LEVEL SECURITY;
 ALTER TABLE articles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE topic_clusters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE weekly_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE monthly_reports ENABLE ROW LEVEL SECURITY;
@@ -260,6 +294,7 @@ ALTER TABLE report_archives ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public read access" ON sources FOR SELECT USING (true);
 CREATE POLICY "Public read access" ON articles FOR SELECT USING (true);
 CREATE POLICY "Public read access" ON events FOR SELECT USING (true);
+CREATE POLICY "Public read access" ON topic_clusters FOR SELECT USING (true);
 CREATE POLICY "Public read access" ON daily_reports FOR SELECT USING (true);
 CREATE POLICY "Public read access" ON weekly_reports FOR SELECT USING (true);
 CREATE POLICY "Public read access" ON monthly_reports FOR SELECT USING (true);
@@ -269,6 +304,7 @@ CREATE POLICY "Public read access" ON report_archives FOR SELECT USING (true);
 CREATE POLICY "Service role full access" ON sources FOR ALL USING (auth.role() = 'service_role');
 CREATE POLICY "Service role full access" ON articles FOR ALL USING (auth.role() = 'service_role');
 CREATE POLICY "Service role full access" ON events FOR ALL USING (auth.role() = 'service_role');
+CREATE POLICY "Service role full access" ON topic_clusters FOR ALL USING (auth.role() = 'service_role');
 CREATE POLICY "Service role full access" ON daily_reports FOR ALL USING (auth.role() = 'service_role');
 CREATE POLICY "Service role full access" ON weekly_reports FOR ALL USING (auth.role() = 'service_role');
 CREATE POLICY "Service role full access" ON monthly_reports FOR ALL USING (auth.role() = 'service_role');

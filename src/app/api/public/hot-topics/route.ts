@@ -11,8 +11,8 @@ const MAX_TAKE = 50;
 /**
  * GET /api/public/hot-topics
  *
- * Returns hot topics ranked by multi-source coverage.
- * A "hot topic" = an event that was reported by multiple distinct sources.
+ * Returns hot topics ranked by multi-source coverage and score.
+ * Data comes from the topic_clusters table (bigram Jaccard clustering).
  *
  * Query params:
  *   take  — number of results (default: 10, max: 50)
@@ -29,60 +29,33 @@ export async function GET(request: NextRequest) {
   // Calculate lookback date
   const sinceDate = new Date();
   sinceDate.setDate(sinceDate.getDate() - days);
+  const sinceDateStr = sinceDate.toISOString().split('T')[0];
 
-  // Fetch events within the time window, ordered by article_count (coverage)
-  const { data: events, error } = await adminClient
-    .from('events')
+  // Fetch clusters within the time window, ordered by source_count then max_score
+  const { data: clusters, error } = await adminClient
+    .from('topic_clusters')
     .select('*')
-    .gte('first_seen_at', sinceDate.toISOString())
-    .order('article_count', { ascending: false })
-    .order('importance_score', { ascending: false })
+    .gte('cluster_date', sinceDateStr)
+    .order('source_count', { ascending: false })
+    .order('max_score', { ascending: false })
     .limit(take);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const hotEvents = events || [];
-
-  // For each event, gather distinct source names from its articles
-  const hotTopics = [];
-  for (const event of hotEvents) {
-    let sourceNames: string[] = [];
-    let sourceCount = 0;
-
-    if (event.article_ids && event.article_ids.length > 0) {
-      const { data: articles } = await adminClient
-        .from('articles')
-        .select('source_name')
-        .in('id', event.article_ids.slice(0, 20)); // limit sub-query
-
-      if (articles) {
-        const uniqueSources = new Set(articles.map((a: any) => a.source_name));
-        sourceNames = Array.from(uniqueSources);
-        sourceCount = sourceNames.length;
-      }
-    }
-
-    hotTopics.push({
-      id: event.id,
-      title: event.event_title,
-      summary: event.summary || null,
-      category: event.category,
-      articleCount: event.article_count,
-      sourceCount,
-      sourceNames,
-      importanceScore: event.importance_score || 0,
-      firstSeenAt: event.first_seen_at,
-      lastSeenAt: event.last_seen_at,
-    });
-  }
-
-  // Re-sort by sourceCount (multi-source coverage) as primary, importanceScore as secondary
-  hotTopics.sort((a, b) => {
-    if (b.sourceCount !== a.sourceCount) return b.sourceCount - a.sourceCount;
-    return b.importanceScore - a.importanceScore;
-  });
+  const hotTopics = (clusters || []).map((c: any) => ({
+    id: c.id,
+    title: c.primary_title,
+    summary: c.primary_excerpt || null,
+    category: c.primary_category,
+    articleCount: c.related_count + 1,
+    sourceCount: c.source_count,
+    sourceNames: c.unique_sources || [],
+    maxScore: c.max_score || 0,
+    avgScore: c.avg_score || 0,
+    clusterDate: c.cluster_date,
+  }));
 
   const body = {
     hotTopics,

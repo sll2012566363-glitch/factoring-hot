@@ -8,6 +8,20 @@ interface ArticleCardProps {
   categoryName?: string;
 }
 
+function getScoreColor(score: number): string {
+  if (score >= 80) return 'bg-red-50 text-red-600 border-red-200';
+  if (score >= 60) return 'bg-orange-50 text-orange-600 border-orange-200';
+  if (score >= 40) return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+  return 'bg-gray-50 text-gray-500 border-gray-200';
+}
+
+function getScoreLabel(score: number): string {
+  if (score >= 80) return '热点';
+  if (score >= 60) return '关注';
+  if (score >= 40) return '一般';
+  return '';
+}
+
 export default function ArticleCard({ article, categoryName }: ArticleCardProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -21,62 +35,66 @@ export default function ArticleCard({ article, categoryName }: ArticleCardProps)
     return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
   };
 
+  const score = article.score != null ? Math.round(article.score) : null;
+
   return (
-    <article className="group bg-white rounded-lg border border-gray-200 p-5 hover:border-blue-300 hover:shadow-md transition-all duration-200">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            {categoryName && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
-                {categoryName}
-              </span>
+    <article className="group bg-white rounded-lg border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition-all duration-200">
+      <div className="flex items-start gap-3">
+        {/* Score badge on the left */}
+        {score !== null && (
+          <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex flex-col items-center justify-center border ${getScoreColor(score)}`}>
+            <span className="text-sm font-bold leading-none">{score}</span>
+            {getScoreLabel(score) && (
+              <span className="text-[9px] leading-none mt-0.5 opacity-70">{getScoreLabel(score)}</span>
             )}
-            <span className="text-xs text-gray-500">
-              {article.source_name}
-            </span>
-            <span className="text-xs text-gray-400">·</span>
-            <span className="text-xs text-gray-500">
-              {formatDate(article.pub_date)}
-            </span>
           </div>
-          
-          <h3 className="text-base font-semibold text-gray-900 mb-2 line-clamp-2">
+        )}
+
+        <div className="flex-1 min-w-0">
+          {/* Title */}
+          <h3 className="text-sm font-semibold text-gray-900 mb-1.5 line-clamp-2 leading-snug">
             <Link href={`/article/${article.id}`} className="hover:text-blue-600 transition-colors">
               {article.title}
             </Link>
           </h3>
           
+          {/* Excerpt */}
           {(article.excerpt || article.content) && (
-            <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+            <p className="text-xs text-gray-500 line-clamp-2 mb-2 leading-relaxed">
               {article.excerpt || article.content}
             </p>
           )}
 
-          {article.ai_reason && (
-            <p className="text-xs text-gray-400 italic mb-2 line-clamp-1">
-              AI: {article.ai_reason}
-            </p>
-          )}
-
-          <div className="flex items-center gap-3 text-xs text-gray-500">
-            {article.score != null && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded bg-yellow-50 text-yellow-700 font-medium">
-                {Math.round(article.score)} 分
+          {/* Meta row */}
+          <div className="flex items-center gap-2 text-xs flex-wrap">
+            {categoryName && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-600">
+                {categoryName}
               </span>
             )}
-            {article.scoring_method && (
-              <span className="text-gray-400">
-                {article.scoring_method === 'llm' ? 'AI评分' : '规则评分'}
-              </span>
+            <span className="text-gray-500">
+              {article.source_name}
+            </span>
+            <span className="text-gray-300">·</span>
+            <span className="text-gray-400">
+              {formatDate(article.pub_date)}
+            </span>
+            {article.ai_reason && (
+              <>
+                <span className="text-gray-300">·</span>
+                <span className="text-gray-400 italic line-clamp-1 max-w-[200px]" title={article.ai_reason}>
+                  {article.ai_reason}
+                </span>
+              </>
             )}
             <a
               href={article.link}
               target="_blank"
               rel="noopener noreferrer"
-              className="ml-auto text-gray-400 hover:text-blue-500 transition-colors"
+              className="ml-auto text-gray-300 hover:text-blue-500 transition-colors flex-shrink-0"
               title="查看原文"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
             </a>

@@ -13,91 +13,90 @@ const SECTION_NAMES: Record<string, string> = {
   regulatory: '前沿监管新闻',
   dispute: '前沿争议解决',
   normative: '前沿规范文件',
-  policy: '政策动态',
-  market: '市场信号',
-  risk: '风险预警',
-  innovation: '创新实践',
 };
 
-interface EventRecord {
+interface ClusterRecord {
   id: string;
-  event_title: string;
-  summary: string | null;
-  category: string;
-  article_count: number;
-  article_ids: string[] | null;
-  importance_score: number | null;
-  first_seen_at: string;
-  last_seen_at: string;
+  primary_article_id: string;
+  primary_title: string;
+  primary_excerpt: string | null;
+  primary_score: number | null;
+  primary_link: string;
+  primary_source: string;
+  primary_category: string;
+  related_article_ids: string[];
+  related_count: number;
+  source_count: number;
+  unique_sources: string[];
+  max_score: number;
+  avg_score: number;
+  cluster_date: string;
 }
 
-interface ArticleInfo {
+interface RelatedArticle {
   id: string;
   title: string;
   source_name: string;
+  score: number | null;
 }
 
 export const dynamic = 'force-dynamic';
 
 export default async function TopicsPage() {
-  // Lookback 7 days
-  const sinceDate = new Date();
-  sinceDate.setDate(sinceDate.getDate() - 7);
-
-  // Fetch events within the time window
-  const { data: events, error } = await supabase
-    .from('events')
+  // Fetch clusters from last 14 days, sorted by source_count then max_score
+  const { data: clusters, error } = await supabase
+    .from('topic_clusters')
     .select('*')
-    .gte('first_seen_at', sinceDate.toISOString())
-    .order('article_count', { ascending: false })
-    .order('importance_score', { ascending: false })
+    .gte('cluster_date', new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0])
+    .order('source_count', { ascending: false })
+    .order('max_score', { ascending: false })
     .limit(30);
 
   let hotTopics: Array<{
-    event: EventRecord;
-    articles: ArticleInfo[];
-    sourceCount: number;
-    sourceNames: string[];
+    cluster: ClusterRecord;
+    relatedArticles: RelatedArticle[];
   }> = [];
 
-  if (events && events.length > 0) {
-    // For each event, fetch related articles
+  if (clusters && clusters.length > 0) {
+    // Only fetch related articles for clusters that have them
     hotTopics = await Promise.all(
-      events.map(async (event: EventRecord) => {
-        let articles: ArticleInfo[] = [];
-        let sourceCount = 0;
-        let sourceNames: string[] = [];
+      clusters.map(async (cluster: ClusterRecord) => {
+        let relatedArticles: RelatedArticle[] = [];
 
-        if (event.article_ids && event.article_ids.length > 0) {
-          const { data: articleRows } = await supabase
+        if (cluster.related_article_ids && cluster.related_article_ids.length > 0) {
+          const { data: rows } = await supabase
             .from('articles')
-            .select('id, title, source_name')
-            .in('id', event.article_ids.slice(0, 20));
+            .select('id, title, source_name, score')
+            .in('id', cluster.related_article_ids.slice(0, 10));
 
-          if (articleRows) {
-            articles = articleRows as ArticleInfo[];
-            const uniqueSources = new Set(articles.map(a => a.source_name));
-            sourceNames = Array.from(uniqueSources);
-            sourceCount = sourceNames.length;
+          if (rows) {
+            relatedArticles = (rows as RelatedArticle[]).sort(
+              (a, b) => (b.score || 0) - (a.score || 0)
+            );
           }
         }
 
-        return { event, articles, sourceCount, sourceNames };
+        return { cluster, relatedArticles };
       })
     );
 
-    // Re-sort by sourceCount (primary) then importanceScore (secondary)
-    hotTopics.sort((a, b) => {
-      if (b.sourceCount !== a.sourceCount) return b.sourceCount - a.sourceCount;
-      const scoreA = a.event.importance_score || 0;
-      const scoreB = b.event.importance_score || 0;
-      return scoreB - scoreA;
-    });
+    // Filter out single-article "clusters" with no real multi-source coverage
+    // but keep them if source_count >= 2
+    hotTopics = hotTopics.filter(
+      ({ cluster }) => cluster.source_count >= 2 || cluster.related_count >= 1
+    );
   }
 
-  const firstSeen = (dateStr: string) => {
+  const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+  };
+
+  const scoreColor = (score: number) => {
+    if (score >= 80) return 'bg-red-50 text-red-600';
+    if (score >= 60) return 'bg-orange-50 text-orange-600';
+    if (score >= 40) return 'bg-yellow-50 text-yellow-700';
+    return 'bg-gray-100 text-gray-500';
   };
 
   return (
@@ -110,7 +109,7 @@ export default async function TopicsPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">热门话题</h1>
             <p className="text-sm text-gray-500 mt-1">
-              近 7 天多信源覆盖的高热度事件聚合
+              近 14 天多信源覆盖的高热度事件聚合，按信源数量和评分排序
             </p>
           </div>
           <Link
@@ -127,18 +126,20 @@ export default async function TopicsPage() {
         {hotTopics.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
             <div className="text-gray-400 text-lg mb-2">暂无热门话题</div>
-            <p className="text-gray-400 text-sm">近 7 天内暂无多信源覆盖的事件，请稍后再来查看</p>
+            <p className="text-gray-400 text-sm">
+              近 14 天内暂无多信源覆盖的事件聚类，请等待数据采集后查看
+            </p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {hotTopics.map(({ event, articles, sourceCount, sourceNames }, index) => (
+          <div className="space-y-4">
+            {hotTopics.map(({ cluster, relatedArticles }, index) => (
               <div
-                key={event.id}
+                key={cluster.id}
                 className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:border-blue-200 transition-colors"
               >
                 {/* Card header */}
-                <div className="p-6 pb-4">
-                  <div className="flex items-start gap-4">
+                <div className="p-5 pb-4">
+                  <div className="flex items-start gap-3">
                     {/* Rank badge */}
                     <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
                       index < 3
@@ -149,74 +150,78 @@ export default async function TopicsPage() {
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      {/* Title */}
-                      <h2 className="text-lg font-semibold text-gray-900 leading-snug mb-2">
-                        {event.event_title}
-                      </h2>
+                      {/* Title with link to primary article */}
+                      <a
+                        href={cluster.primary_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-lg font-semibold text-gray-900 leading-snug mb-2 hover:text-blue-600 transition-colors"
+                      >
+                        {cluster.primary_title}
+                      </a>
 
                       {/* Meta row */}
-                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <div className="flex flex-wrap items-center gap-2 text-xs mt-2">
                         {/* Category tag */}
-                        {event.category && (
+                        {cluster.primary_category && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">
-                            {SECTION_NAMES[event.category] || event.category}
+                            {SECTION_NAMES[cluster.primary_category] || cluster.primary_category}
                           </span>
                         )}
 
                         {/* Article count */}
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100 text-gray-600">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          {event.article_count} 篇文章
+                          {cluster.related_count + 1} 篇文章
                         </span>
 
                         {/* Source count */}
-                        {sourceCount > 0 && (
+                        {cluster.source_count > 1 && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-50 text-green-600 font-medium">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2" />
-                            </svg>
-                            {sourceCount} 个信源
+                            {cluster.source_count} 个信源
                           </span>
                         )}
 
-                        {/* Date range */}
+                        {/* Score badge */}
+                        {cluster.max_score > 0 && (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded font-medium ${scoreColor(cluster.max_score)}`}>
+                            最高 {Math.round(cluster.max_score)} 分
+                          </span>
+                        )}
+
+                        {/* Date */}
                         <span className="text-gray-400">
-                          {firstSeen(event.first_seen_at)} — {firstSeen(event.last_seen_at)}
+                          {formatDate(cluster.cluster_date)}
                         </span>
-
-                        {/* Importance score */}
-                        {event.importance_score && event.importance_score > 0 && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded bg-yellow-50 text-yellow-700 font-medium">
-                            {Math.round(event.importance_score)} 分
-                          </span>
-                        )}
                       </div>
 
-                      {/* Summary */}
-                      {event.summary && (
-                        <p className="mt-3 text-sm text-gray-600 leading-relaxed">
-                          {event.summary}
+                      {/* Excerpt */}
+                      {cluster.primary_excerpt && (
+                        <p className="mt-2 text-sm text-gray-600 leading-relaxed line-clamp-2">
+                          {cluster.primary_excerpt}
                         </p>
                       )}
 
                       {/* Source names */}
-                      {sourceNames.length > 0 && (
+                      {cluster.unique_sources && cluster.unique_sources.length > 0 && (
                         <div className="mt-2 text-xs text-gray-400">
-                          信源：{sourceNames.join('、')}
+                          信源：{cluster.unique_sources.join('、')}
                         </div>
                       )}
+
+                      {/* Primary source */}
+                      <div className="mt-1 text-xs text-gray-400">
+                        主要来源：{cluster.primary_source}
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Related articles */}
-                {articles.length > 0 && (
-                  <div className="border-t border-gray-100 px-6 py-4 bg-gray-50/50">
-                    <div className="text-xs font-medium text-gray-500 mb-2">相关文章</div>
+                {relatedArticles.length > 0 && (
+                  <div className="border-t border-gray-100 px-5 py-3 bg-gray-50/50">
+                    <div className="text-xs font-medium text-gray-500 mb-2">相关报道</div>
                     <ul className="space-y-1.5">
-                      {articles.slice(0, 8).map(article => (
+                      {relatedArticles.slice(0, 6).map(article => (
                         <li key={article.id}>
                           <Link
                             href={`/article/${article.id}`}
@@ -224,6 +229,11 @@ export default async function TopicsPage() {
                           >
                             <span className="w-1 h-1 rounded-full bg-gray-300 group-hover:bg-blue-400 flex-shrink-0" />
                             <span className="truncate">{article.title}</span>
+                            {article.score != null && (
+                              <span className="text-xs text-gray-400 flex-shrink-0">
+                                {Math.round(article.score)}分
+                              </span>
+                            )}
                             <span className="text-xs text-gray-400 flex-shrink-0 ml-auto hidden sm:inline">
                               {article.source_name}
                             </span>
@@ -231,9 +241,9 @@ export default async function TopicsPage() {
                         </li>
                       ))}
                     </ul>
-                    {articles.length > 8 && (
+                    {cluster.related_count > 6 && (
                       <div className="mt-2 text-xs text-gray-400">
-                        还有 {articles.length - 8} 篇相关文章...
+                        还有 {cluster.related_count - 6} 篇相关报道...
                       </div>
                     )}
                   </div>

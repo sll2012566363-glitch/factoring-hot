@@ -1,5 +1,5 @@
 /**
- * 全链路爬虫管道：fetch → pre-filter → enrich → score
+ * 全链路爬虫管道：fetch → pre-filter → enrich → score → cluster
  * 用于 cron 定时调用或手动一键运行
  */
 import { execSync } from 'child_process';
@@ -32,16 +32,19 @@ async function main() {
   console.log('🚀 开始执行全链路管道...\n');
 
   // Step 1: Fetch articles from sources
-  runStep('1/4 抓取文章', 'src/scripts/fetch-sources.ts');
+  runStep('1/5 抓取文章', 'src/scripts/fetch-sources.ts');
 
   // Step 2: Pre-filter (关键词+LLM快筛，淘汰无关文章)
-  runStep('2/4 预筛过滤', 'src/scripts/pre-filter.ts');
+  runStep('2/5 预筛过滤', 'src/scripts/pre-filter.ts');
 
   // Step 3: Enrich articles (fetch body text + better dates)
-  runStep('3/4 充实正文', 'src/scripts/enrich-articles.ts');
+  runStep('3/5 充实正文', 'src/scripts/enrich-articles.ts');
 
   // Step 4: Score articles with LLM
-  runStep('4/4 LLM评分', 'src/scripts/llm-score.ts');
+  runStep('4/5 LLM评分', 'src/scripts/llm-score.ts');
+
+  // Step 5: Cluster events (bigram Jaccard similarity)
+  runStep('5/5 事件聚类', 'src/scripts/cluster-events.ts');
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(`\n✅ 全链路管道完成，耗时 ${elapsed}s`);
