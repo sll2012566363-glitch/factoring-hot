@@ -165,8 +165,8 @@ async function generateWeeklyReport(year: number, week: number) {
   const { data: articles, error } = await supabase
     .from('articles')
     .select('*')
-    .gte('pub_date', startDate.toISOString().split('T')[0])
-    .lt('pub_date', endDate.toISOString().split('T')[0])
+    .gte('pub_date', `${startDate.toISOString().split('T')[0]}T00:00:00+08:00`)
+    .lt('pub_date', `${endDate.toISOString().split('T')[0]}T00:00:00+08:00`)
     .not('score', 'is', null)
     .order('score', { ascending: false });
 
@@ -238,7 +238,7 @@ async function generateWeeklyReport(year: number, week: number) {
 
   const { error: insertError } = await supabase
     .from('weekly_reports')
-    .upsert(report);
+    .upsert(report, { onConflict: 'year,week_number' });
 
   if (insertError) {
     console.error('Failed to save weekly report:', insertError);
@@ -253,13 +253,13 @@ async function generateMonthlyReport(year: number, month: number) {
   console.log(`📊 Generating monthly report for ${year}-${month}...`);
 
   const startDate = new Date(year, month - 1, 1);
-  const endDate = new Date(year, month, 0);
+  const endDate = new Date(year, month, 1);
 
   const { data: articles, error } = await supabase
     .from('articles')
     .select('*')
-    .gte('pub_date', startDate.toISOString().split('T')[0])
-    .lte('pub_date', endDate.toISOString().split('T')[0])
+    .gte('pub_date', `${startDate.toISOString().split('T')[0]}T00:00:00+08:00`)
+    .lt('pub_date', `${endDate.toISOString().split('T')[0]}T00:00:00+08:00`)
     .not('score', 'is', null)
     .order('score', { ascending: false });
 
@@ -356,7 +356,7 @@ async function generateMonthlyReport(year: number, month: number) {
 
   const { error: insertError } = await supabase
     .from('monthly_reports')
-    .upsert(report);
+    .upsert(report, { onConflict: 'year,month' });
 
   if (insertError) {
     console.error('Failed to save monthly report:', insertError);

@@ -20,8 +20,8 @@ export async function GET(request: NextRequest) {
         method: 'GET',
         description: '获取资讯条目（支持分类、搜索、游标分页）',
         params: {
-          mode: 'all | selected (default: selected)',
-          category: 'policy | market | risk | innovation',
+          mode: 'all | selected (default: all)',
+          category: 'frontier | industry_model | regulatory | dispute | normative',
           since: 'ISO date string (e.g. 2026-07-01)',
           take: '1-100 (default: 20)',
           cursor: 'opaque cursor from previous response',

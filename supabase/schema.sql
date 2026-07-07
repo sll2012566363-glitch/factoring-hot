@@ -56,6 +56,10 @@ CREATE TABLE IF NOT EXISTS articles (
   scored_at TIMESTAMPTZ,
   scoring_method TEXT CHECK (scoring_method IN ('rule', 'llm')),
   
+  -- Pipeline status
+  pre_filtered BOOLEAN,
+  ai_reason TEXT,
+  
   -- Event clustering
   event_id TEXT,
   event_title TEXT,
@@ -78,7 +82,7 @@ CREATE INDEX idx_articles_selected ON articles(is_selected);
 
 COMMENT ON TABLE articles IS '文章表';
 COMMENT ON COLUMN articles.score IS '综合评分（0-100）';
-COMMENT ON COLUMN articles.score_dimensions IS '四维度评分：{policy: 0-25, market: 0-25, risk: 0-25, innovation: 0-25}';
+COMMENT ON COLUMN articles.score_dimensions IS '五维度评分：{frontier: 0-20, industry_model: 0-20, regulatory: 0-20, dispute: 0-20, normative: 0-20}';
 COMMENT ON COLUMN articles.scoring_method IS '评分方法：rule=规则引擎, llm=LLM评分';
 COMMENT ON COLUMN articles.status IS '状态：pending=待筛选, selected=已入选, rejected=已拒绝';
 

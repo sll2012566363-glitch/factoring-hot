@@ -50,22 +50,32 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Auth check
+  const apiKey = process.env.API_KEY;
+  if (apiKey) {
+    const headerKey = request.headers.get('authorization')?.replace('Bearer ', '');
+    const queryKey = request.nextUrl.searchParams.get('api_key');
+    if (headerKey !== apiKey && queryKey !== apiKey) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+  }
+
   const body = await request.json();
-  const year = parseInt(body.year) || new Date().getFullYear();
-  const month = parseInt(body.month) || (new Date().getMonth() + 1);
+  const year = Number.isNaN(parseInt(body.year)) ? new Date().getFullYear() : parseInt(body.year);
+  const month = Number.isNaN(parseInt(body.month)) ? (new Date().getMonth() + 1) : parseInt(body.month);
 
   if (month < 1 || month > 12) {
     return NextResponse.json({ error: 'month must be 1-12' }, { status: 400 });
   }
 
   const startDate = new Date(year, month - 1, 1);
-  const endDate = new Date(year, month, 0);
+  const endDate = new Date(year, month, 1);
 
   const { data: articles, error } = await supabase
     .from('articles')
     .select('*')
-    .gte('pub_date', startDate.toISOString().split('T')[0])
-    .lte('pub_date', endDate.toISOString().split('T')[0])
+    .gte('pub_date', `${startDate.toISOString().split('T')[0]}T00:00:00+08:00`)
+    .lt('pub_date', `${endDate.toISOString().split('T')[0]}T00:00:00+08:00`)
     .not('score', 'is', null)
     .order('score', { ascending: false });
 
@@ -132,7 +142,7 @@ export async function POST(request: NextRequest) {
     generated_at: new Date().toISOString(),
   };
 
-  const { error: insertError } = await supabase.from('monthly_reports').upsert(report);
+  const { error: insertError } = await supabase.from('monthly_reports').upsert(report, { onConflict: 'year,month' });
   if (insertError) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }

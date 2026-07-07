@@ -9,10 +9,11 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://factoring-hot.verc
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || '保理 HOT';
 
 const VALID_CATEGORIES: Record<string, string> = {
-  policy: '政策监管',
-  market: '市场信号',
-  risk: '风险预警',
-  innovation: '创新实践',
+  frontier: '前沿解读',
+  industry_model: '行业前沿模式',
+  regulatory: '前沿监管新闻',
+  dispute: '前沿争议解决',
+  normative: '前沿规范文件',
 };
 
 /**

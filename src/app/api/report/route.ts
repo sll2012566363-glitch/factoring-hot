@@ -57,12 +57,13 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from('daily_reports')
       .upsert({
+        id: `daily-${report_date}`,
         report_date,
         sections,
         total_articles,
         executive_summary,
         generated_at: new Date().toISOString()
-      })
+      }, { onConflict: 'report_date' })
       .select()
       .single();
     

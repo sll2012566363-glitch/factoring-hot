@@ -29,12 +29,16 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(parseInt(sp.get('limit') || '12'), 52);
 
   if (week) {
+    const weekNum = parseInt(week);
+    if (Number.isNaN(weekNum) || weekNum < 1 || weekNum > 53) {
+      return NextResponse.json({ error: 'week must be 1-53' }, { status: 400 });
+    }
     // Single report lookup
     const { data, error } = await supabase
       .from('weekly_reports')
       .select('*')
       .eq('year', year)
-      .eq('week_number', parseInt(week))
+      .eq('week_number', weekNum)
       .single();
 
     if (error || !data) {

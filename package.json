@@ -7,10 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "fetch": "tsx scripts/fetch-sources.ts",
-    "score": "tsx scripts/ai-score.ts",
-    "cluster": "tsx scripts/cluster-events.ts",
-    "report": "tsx scripts/generate-report.ts",
+    "fetch": "tsx src/scripts/fetch-sources.ts",
+    "score": "tsx src/scripts/llm-score.ts",
+    "cluster": "tsx src/scripts/cluster-events.ts",
+    "report": "tsx src/scripts/generate-reports.ts daily",
     "init": "tsx src/scripts/init-sources.ts",
     "report:weekly": "tsx src/scripts/generate-reports.ts weekly",
     "report:monthly": "tsx src/scripts/generate-reports.ts monthly"
@@ -24,7 +24,8 @@
     "openai": "^4.72.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "rss-parser": "^3.13.0"
+    "rss-parser": "^3.13.0",
+    "undici": "^6.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

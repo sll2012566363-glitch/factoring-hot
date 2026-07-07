@@ -49,8 +49,8 @@ export async function generateDailyReport(date?: string): Promise<DailyReport | 
       let filtered = [...articles];
       
       // Apply filters
-      if (sectionConfig.filter.category) {
-        filtered = filtered.filter(a => a.category === sectionConfig.filter.category);
+      if (sectionConfig.filter.section) {
+        filtered = filtered.filter(a => a.category === sectionConfig.filter.section);
       }
       if (sectionConfig.filter.minScore) {
         filtered = filtered.filter(a => (a.score || 0) >= sectionConfig.filter.minScore);

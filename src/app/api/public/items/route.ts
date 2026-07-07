@@ -43,7 +43,8 @@ export async function GET(request: NextRequest) {
   const mode = sp.get('mode') || 'all';
   const category = sp.get('category');
   const since = sp.get('since');
-  const take = Math.min(Math.max(parseInt(sp.get('take') || '20'), 1), MAX_TAKE);
+  const takeRaw = parseInt(sp.get('take') || '20');
+  const take = Math.min(Math.max(Number.isNaN(takeRaw) ? 20 : takeRaw, 1), MAX_TAKE);
   const cursorRaw = sp.get('cursor');
   const q = sp.get('q')?.trim();
 

@@ -9,7 +9,7 @@ import type { Category } from '@/types';
 const sections: Category[] = [
   { id: 'frontier',       name: '前沿解读',     icon: '🔍', description: '评分最高的深度分析文章' },
   { id: 'industry_model', name: '行业前沿模式', icon: '🏭', description: '市场趋势与创新实践' },
-  { id: 'regulatory',     name: '前沿监管新闻', icon: '', description: '央行、金融监管总局等政策动态' },
+  { id: 'regulatory',     name: '前沿监管新闻', icon: '📋', description: '央行、金融监管总局等政策动态' },
   { id: 'dispute',        name: '前沿争议解决', icon: '⚖️', description: '风险预警与争议解决案例' },
   { id: 'normative',      name: '前沿规范文件', icon: '📄', description: '高分监管规范与政策文件' },
 ];

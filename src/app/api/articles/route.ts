@@ -15,20 +15,14 @@ function checkAuth(request: NextRequest): boolean {
   return headerKey === apiKey || queryKey === apiKey;
 }
 
-/** Get today's date in Beijing timezone (UTC+8) */
-function getBeijingToday(): string {
-  const now = new Date();
-  const beijingOffset = 8 * 60 * 60 * 1000;
-  const beijingDate = new Date(now.getTime() + beijingOffset);
-  return beijingDate.toISOString().split('T')[0];
-}
-
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const date = searchParams.get('date');
   const category = searchParams.get('category');
-  const limit = parseInt(searchParams.get('limit') || '40');
-  const offset = parseInt(searchParams.get('offset') || '0');
+  const limitRaw = parseInt(searchParams.get('limit') || '40');
+  const offsetRaw = parseInt(searchParams.get('offset') || '0');
+  const limit = Number.isNaN(limitRaw) ? 40 : limitRaw;
+  const offset = Number.isNaN(offsetRaw) ? 0 : offsetRaw;
   
   let query = supabase
     .from('articles')
@@ -72,15 +66,13 @@ export async function POST(request: NextRequest) {
     }
     
     if (action === 'update_scores') {
-      const updates = articleIds.map((id: string) => ({
-        id,
-        score,
-        scored_at: new Date().toISOString()
-      }));
-      
       const { error } = await supabase
         .from('articles')
-        .upsert(updates);
+        .update({
+          score,
+          scored_at: new Date().toISOString()
+        })
+        .in('id', articleIds);
       
       if (error) throw error;
       
