@@ -1,522 +1,345 @@
-# 保理HOT 项目交接文档
+# 保理 HOT — 项目交接文档
 
-> 交接日期：2026-07-05  
-> 项目状态：静态演示完成，后端待实现  
-> 写给下一位接手的 AI 助手
+> 最后更新：2026-07-09  
+> 线上地址：https://factoring-hot.vercel.app  
+> GitHub：https://github.com/sll2012566363-glitch/factoring-hot  
+> Supabase 项目名：baoli（region: ap-southeast-2）
 
 ---
 
 ## 一、项目概述
 
-**项目名称：** 保理HOT（Factoring HOT）  
-**项目性质：** 保理与供应链金融垂直领域资讯聚合平台  
-**参考对标：** 数字生命卡兹克的 AI HOT（aihot.virxact.com）  
-**目标用户：** 保理公司、供应链金融企业、金融机构、法律从业者  
+保理 HOT 是一个面向中国保理与供应链金融行业的资讯聚合平台。系统自动从 48 个权威信源（政府监管机构、行业协会、金融媒体、智库、交易所）抓取文章，通过 AI 五维度评分系统打分，按话题聚类，并自动生成日报/周报/月刊。
 
-**核心功能：**
-1. 每日自动采集 20+ 权威信源（监管/协会/媒体/学术）
-2. AI 四维度评分（政策敏感性 / 市场信号 / 风险预警 / 业务创新）
-3. 每日生成日报（自动排版，零 LLM 调用）
-4. 每周生成周报（热点洞察 + 趋势分析）
-5. 每月生成月刊（按固定板块结构）
-
----
-
-## 二、已完成工作
-
-### ✅ 静态演示（可直接在浏览器打开）
-
-文件：`factoring-hot/index-standalone.html`
-
-- 完整的四页切换（日报 / 周报 / 月刊 / 往期）
-- 深色 Hero + 蜂蜜黄强调色设计
-- 8 篇模拟文章数据，含分类筛选交互
-- 月刊页完全对齐用户现有五月刊结构（五大板块）
-
-**如何使用：** 双击文件，或用浏览器打开即可。
-
----
-
-### ✅ Next.js 项目骨架
-
-目录：`factoring-hot/`
-
-已完成的文件：
-
-| 文件 | 说明 |
-|------|------|
-| `package.json` | 依赖配置（Next.js 14 + Tailwind + Supabase） |
-| `tsconfig.json` | TypeScript 配置 |
-| `next.config.js` | Next.js 配置 |
-| `tailwind.config.ts` | Tailwind 主题（蓝色主色） |
-| `src/types/index.ts` | TypeScript 类型定义 |
-| `src/lib/supabase.ts` | Supabase 客户端 |
-| `src/app/layout.tsx` | 全局布局 |
-| `src/app/globals.css` | 全局样式 |
-| `src/app/page.tsx` | 首页（含模拟数据，可直接运行） |
-| `src/components/Header.tsx` | 顶部导航组件 |
-| `src/components/CategoryFilter.tsx` | 分类筛选组件 |
-| `src/components/ArticleCard.tsx` | 文章卡片组件 |
-| `src/components/DateGroup.tsx` | 日期分组组件 |
-| `src/components/DailyReportView.tsx` | 日报视图组件 |
-| `config/sources.json` | 20 个信源配置 |
-| `config/scoring.json` | 评分规则配置 |
-| `supabase/schema.sql` | 数据库 Schema（7 张表） |
-| `.github/workflows/fetch.yml` | 定时采集 GitHub Actions |
-| `.github/workflows/daily-report.yml` | 定时生成日报 GitHub Actions |
-| `DEPLOYMENT.md` | 详细部署指南 |
-| `SETUP.md` | 快速启动指南 |
-
----
-
-### ✅ 月刊结构（已对齐用户现有刊物）
-
-完全按照用户提供的 `260604v2供应链和供应链金融前沿26年五月刊.docx` 结构设计：
-
-1. **第一部分：前沿解读** — 深度政策/市场分析文章
-2. **第二部分：行业前沿模式** — 区块链/电子凭证/跨境保理等创新实践
-3. **第三部分：前沿监管新闻** — 新规动态（含施行日期）
-4. **第四部分：前沿争议解决** — 典型案例 + 裁判规则提炼
-5. **第五部分：前沿规范文件** — 新规全文列表
-6. **编委会名单** — 主编：田江涛；副主编：沈龙龙（Leo）
-
----
-
-## 三、数据库设计
-
-### Schema 文件：`supabase/schema.sql`
-
-共 7 张表：
-
-| 表名 | 用途 | 关键字段 |
-|------|------|----------|
-| `sources` | 信源管理 | `id`, `name`, `url`, `type`(rss/html), `category`, `weight`(1-10), `active` |
-| `articles` | 文章数据 | `id`, `source_id`, `title`, `link`, `content`, `pub_date`, `score`, `category`, `status`(pending/scored/published) |
-| `events` | 事件聚类 | `id`, `title`, `keywords`, `articles`(JSONB), `hotness` |
-| `daily_reports` | 日报 | `id`, `date`, `content`(JSONB), `top_articles`(JSONB) |
-| `weekly_reports` | 周报 | `id`, `week_number`, `year`, `start_date`, `end_date`, `sections`(JSONB) |
-| `monthly_reports` | 月刊 | `id`, `year`, `month`, `sections`(JSONB), `editor_list`(JSONB) |
-| `report_archives` | 归档 | `id`, `report_id`, `report_type`, `file_url`, `download_count` |
-
-**枚举类型：**
-- `source_category`: `policy` / `market` / `risk` / `innovation`
-- `source_type`: `rss` / `html` / `api` / `wechat`
-- `article_status`: `pending` / `scored` / `published` / `archived`
-
----
-
-## 四、待完成工作（按优先级排序）
-
-### 🔴 P0 — 必须完成（项目才能跑起来）
-
-#### 1. 配置 Supabase 数据库
-
-**步骤：**
-1. 注册/登录 [Supabase](https://supabase.com)
-2. 新建项目（名称：`factoring-hot`，密码记下来）
-3. 进入 SQL Editor，粘贴 `supabase/schema.sql` 全部内容，点击运行
-4. 进入 Settings → API，复制：
-   - `NEXT_PUBLIC_SUPABASE_URL`（类似 `https://xxxx.supabase.co`）
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`（以 `eyJ` 开头）
-   - `SERVICE_ROLE_KEY`（以 `eyJ` 开头，**保密**）
-5. 在项目根目录创建 `.env.local`，填入这些值
-
-**预计时间：** 20 分钟
-
----
-
-#### 2. 采集脚本实现
-
-**目标：** 从 `config/sources.json` 的 20 个信源抓取文章，存入 `articles` 表。
-
-**文件待创建：** `src/lib/ingest.ts`
-
-**关键逻辑：**
-```typescript
-// 伪代码
-for (const source of sources) {
-  if (source.type === 'rss') {
-    // 用 rss-parser 解析 RSS
-    const feed = await parseFeed(source.url);
-    for (const item of feed.items) {
-      // 去重（按 link 或 title 哈希）
-      // 存入 articles 表，status = 'pending'
-    }
-  } else if (source.type === 'html') {
-    // 用 cheerio 解析 HTML
-    // 提取标题/链接/摘要/发布时间
-  } else if (source.type === 'wechat') {
-    // 用微信公众号 API 或 Playwright 抓取
-    // 需要特殊处理（卡兹克用 Playwright 无头浏览器）
-  }
-}
+**核心数据流：**
 ```
-
-**注意：**
-- RSS 信源优先（稳定、规范）
-- HTML 抓取需要针对每个网站写选择器
-- 微信公众号文章建议用 [Wechat Article Fetch](../.workbuddy/skills/wechat-article-fetch/) 技能
-
----
-
-#### 3. 评分脚本实现
-
-**目标：** 对 `status = 'pending'` 的文章进行 AI 评分。
-
-**文件待创建：** `src/lib/score.ts`
-
-**两种模式：**
-
-**模式 A：规则引擎（免费，推荐先做）**
-```typescript
-function ruleBasedScore(article: Article): number {
-  let score = 50; // 基础分
-  
-  // 关键词加权
-  const policyKeywords = ['监管', '办法', '通知', '银保监会', '最高法'];
-  const marketKeywords = ['规模', '增长', 'ABS', '发行'];
-  const riskKeywords = ['违规', '立案', '风险', '暴雷'];
-  const innovationKeywords = ['区块链', 'AI', '大模型', '电子凭证'];
-
-  // 标题匹配
-  for (const kw of policyKeywords) {
-    if (article.title.includes(kw)) score += 5;
-  }
-  // 内容匹配（权重减半）
-  for (const kw of marketKeywords) {
-    if (article.content?.includes(kw)) score += 2;
-  }
-
-  // 来源权重
-  score += article.source.weight * 2;
-
-  // 时效性（越新越高）
-  const hoursAgo = (now - pubDate) / 3600000;
-  if (hoursAgo < 6) score += 15;
-  else if (hoursAgo < 24) score += 10;
-  else if (hoursAgo < 72) score += 5;
-
-  return Math.min(100, Math.max(0, score));
-}
-```
-
-**模式 B：LLM 评分（精确，需要 API Key）**
-```typescript
-// 调用 OpenAI API
-const prompt = `
-请对以下保理行业文章进行评分（0-100分），从四个维度评估：
-
-1. 政策敏感性（0-25）：是否涉及监管政策、法规变更
-2. 市场信号（0-25）：是否反映市场规模、融资趋势
-3. 风险预警（0-25）：是否提示行业风险、违规案例
-4. 业务创新（0-25）：是否介绍新技术、新模式
-
-文章标题：${article.title}
-文章摘要：${article.content?.slice(0, 500)}
-
-只返回一个数字（0-100），不要解释。
-`;
-
-const response = await openai.chat.completions.create({
-  model: 'gpt-4o-mini', // 便宜，够用
-  messages: [{ role: 'user', content: prompt }],
-  temperature: 0,
-});
-
-return parseInt(response.choices[0].message.content);
-```
-
-**推荐路径：** 先做规则引擎 → 跑通全流程 → 再升级 LLM 评分
-
----
-
-#### 4. 日报生成脚本
-
-**目标：** 每天 20:00 自动生成日报，存入 `daily_reports` 表。
-
-**文件待创建：** `src/lib/generate-daily.ts`
-
-**逻辑：**
-```typescript
-// 1. 获取今天评分 >= 70 的文章
-const todayArticles = await supabase
-  .from('articles')
-  .select('*')
-  .gte('score', 70)
-  .gte('pub_date', todayStart)
-  .lte('pub_date', todayEnd)
-  .order('score', { ascending: false })
-  .limit(15);
-
-// 2. 按分类分组
-const grouped = groupByCategory(todayArticles);
-
-// 3. 生成日报 JSON 结构
-const report = {
-  date: today,
-  top_articles: todayArticles.slice(0, 5),
-  sections: grouped,
-  generated_at: new Date(),
-};
-
-// 4. 存入数据库
-await supabase.from('daily_reports').insert(report);
+信源抓取 → 预过滤(关键词+LLM) → 正文补全 → LLM五维度评分 → 话题聚类 → 报告生成
 ```
 
 ---
 
-### 🟡 P1 — 重要但可后做
+## 二、技术栈
 
-#### 5. 周报生成脚本
+| 层 | 技术 |
+|---|---|
+| 前端框架 | Next.js 14 (App Router) + TypeScript |
+| 样式 | Tailwind CSS |
+| 数据库 | Supabase (PostgreSQL 17) + RLS |
+| 部署 | Vercel (自动部署，push to main) |
+| 定时任务 | GitHub Actions (每小时管道 + 每日日报) |
+| LLM | DeepSeek/Step API (OpenAI 兼容接口) |
+| 爬虫 | cheerio (HTML) + rss-parser (RSS) + undici (fetch) |
 
-**文件待创建：** `src/lib/generate-weekly.ts`
-
-**逻辑：**
-- 统计本周各分类文章数量
-- 找出本周热度最高的 3 个事件（可用简单关键词聚类）
-- 生成趋势分析（对比上周）
-- 存入 `weekly_reports` 表
-
----
-
-#### 6. 月刊生成脚本
-
-**文件待创建：** `src/lib/generate-monthly.ts`
-
-**逻辑：**（严格按照用户五月刊结构）
-```typescript
-const monthlyReport = {
-  year: 2026,
-  month: 7,
-  sections: {
-    part1_interpretation: [/* 前沿解读文章 */],
-    part2_industry_patterns: [/* 行业模式创新 */],
-    part3_regulatory_news: [/* 监管新闻 */],
-    part4_dispute_resolution: [/* 争议解决案例 */],
-    part5_normative_documents: [/* 规范文件列表 */],
-  },
-  editor_list: {
-    chief_editor: '田江涛',
-    deputy_editor: '沈龙龙（Leo）',
-    editorial_team: '德和衡保理研究中心全体成员',
-  },
-};
-```
+**关键要求：Node.js 22+**（Supabase JS v2 需要原生 WebSocket 支持）
 
 ---
 
-#### 7. 前端页面完善
+## 三、目录结构
 
-**待完成：**
-- `src/app/all/page.tsx` — 全部文章页（分页 + 搜索）
-- `src/app/report/[date]/page.tsx` — 日报详情页
-- `src/app/report/weekly/[week]/page.tsx` — 周报详情页
-- `src/app/report/monthly/[month]/page.tsx` — 月刊详情页
-- `src/app/api/articles/route.ts` — 文章列表 API
-- `src/app/api/reports/daily/route.ts` — 日报 API
-- `src/app/api/reports/weekly/route.ts` — 周报 API
-- `src/app/api/reports/monthly/route.ts` — 月刊 API
-
----
-
-### 🟢 P2 — 锦上添花
-
-#### 8. 微信公众号文章抓取
-
-**问题：** 用户现有月刊内容主要来自微信公众号。
-
-**解决方案：**
-- 方案 A：用 [Wechat Article Fetch](../.workbuddy/skills/wechat-article-fetch/) 技能（推荐）
-- 方案 B：用 Playwright 无头浏览器模拟微信读书/搜狗微信搜索
-- 方案 C：手动粘贴文章内容到后台（临时方案）
-
----
-
-#### 9. PDF 导出功能
-
-**需求：** 月刊需要生成 PDF 供下载/打印。
-
-**实现：**
-- 用 `puppeteer` 或 `playwright` 把月刊页面转 PDF
-- 或用 `pdfkit` / `jspdf` 直接生成
-
----
-
-#### 10. 订阅邮件功能
-
-**需求：** 用户希望每周一收到周报邮件。
-
-**实现：**
-- 用 `resend` 或 `sendgrid` API 发送邮件
-- 或集成微信公众号模板消息
-
----
-
-## 五、关键技术决策
-
-### 为什么选 Supabase 而不是 MongoDB/MySQL？
-
-1. **免费额度足够**：500MB 数据库 + 1GB 文件存储（够用很久）
-2. **自带 REST API**：不需要写后端，前端直接调
-3. **实时订阅**：文章更新时前端自动刷新（可选）
-4. **Auth 内置**：如果需要用户登录，直接用 Supabase Auth
-
-### 为什么评分先用规则引擎而不是 LLM？
-
-1. **成本**：LLM 评分每篇文章约 $0.002，每天 50 篇 = $0.1/天 = $3/月
-2. **速度**：规则引擎毫秒级，LLM 需要 2-3 秒/篇
-3. **可控性**：规则引擎结果可预期，LLM 偶尔抽风
-
-**推荐路径：** 规则引擎先跑通 → 积累数据 → 用数据微调 LLM 评分 Prompt
-
----
-
-## 六、文件清单（完整）
-
-### 项目根目录
 ```
 factoring-hot/
-├── index-standalone.html      ✅ 静态演示（可直接打开）
-├── DEPLOYMENT.md             ✅ 部署指南
-├── SETUP.md                  ✅ 快速启动
-├── package.json              ✅ 依赖配置
-├── tsconfig.json            ✅
-├── next.config.js           ✅
-├── tailwind.config.ts       ✅
-├── postcss.config.js        ✅
-├── .env.example            ✅ 环境变量模板
-├── .gitignore              ✅
-│
 ├── config/
-│   ├── sources.json         ✅ 20 个信源
-│   └── scoring.json        ✅ 评分规则
-│
-├── supabase/
-│   └── schema.sql          ✅ 数据库 Schema（7 张表）
-│
+│   ├── scoring.json          # 五维度评分配置 + 日报板块配置
+│   └── sources.json          # 48个信源定义（id/name/url/type/category/priority/rss/selector/active）
 ├── src/
-│   ├── types/
-│   │   └── index.ts        ✅ 类型定义
-│   ├── lib/
-│   │   ├── supabase.ts     ✅ 数据库客户端
-│   │   ├── ingest.ts       ❌ 待创建（采集脚本）
-│   │   ├── score.ts        ❌ 待创建（评分脚本）
-│   │   ├── cluster.ts       ❌ 待创建（事件聚类）
-│   │   ├── generate-daily.ts ❌ 待创建（日报生成）
-│   │   ├── generate-weekly.ts ❌ 待创建（周报生成）
-│   │   └── generate-monthly.ts ❌ 待创建（月刊生成）
-│   ├── components/
-│   │   ├── Header.tsx      ✅
-│   │   ├── CategoryFilter.tsx ✅
-│   │   ├── ArticleCard.tsx ✅
-│   │   ├── DateGroup.tsx   ✅
-│   │   └── DailyReportView.tsx ✅
 │   ├── app/
-│   │   ├── layout.tsx      ✅
-│   │   ├── globals.css     ✅
-│   │   ├── page.tsx        ✅ 首页（含模拟数据）
-│   │   ├── all/page.tsx    ❌ 待完成
-│   │   ├── report/page.tsx ❌ 待完成
-│   │   └── api/            ❌ 待完成（4 个 API 路由）
-│   └── scripts/
-│       ├── init-sources.ts  ✅ 初始化信源数据
-│       ├── cleanup.ts       ✅ 清理脚本
-│       ├── fetch-sources.ts ❌ 待重写（采集逻辑）
-│       ├── score-articles.ts ❌ 待重写（评分逻辑）
-│       └── generate-reports.ts ❌ 待重写（报告生成）
-│
-├── .github/
-│   └── workflows/
-│       ├── fetch.yml        ✅ 定时采集（每 2 小时）
-│       └── daily-report.yml ✅ 定时生成日报（每天 20:00）
-│
-└── node_modules/            （安装后自动生成）
+│   │   ├── page.tsx          # 首页 - 热榜（按日期分组时间线）
+│   │   ├── all/page.tsx      # 全部文章（分页+搜索+分类筛选）
+│   │   ├── archive/page.tsx  # 归档页（⚠️ 当前是占位页，未实现）
+│   │   ├── article/[id]/page.tsx  # 文章详情（实时抓取全文）
+│   │   ├── topics/page.tsx   # 热门话题（从 topic_clusters 读取）
+│   │   ├── report/page.tsx   # 日报
+│   │   ├── report/weekly/page.tsx   # 周报
+│   │   ├── report/monthly/page.tsx  # 月刊
+│   │   ├── api/
+│   │   │   ├── articles/route.ts     # GET 文章列表 / POST 批量更新
+│   │   │   ├── articles/[id]/route.ts # GET 单篇文章
+│   │   │   ├── fetch/route.ts        # POST 触发抓取
+│   │   │   ├── report/route.ts       # GET/POST 日报
+│   │   │   ├── weekly/route.ts       # GET 周报
+│   │   │   ├── monthly/route.ts      # GET/POST 月刊
+│   │   │   ├── cron/run-pipeline/route.ts  # GET 触发完整管道（cron保护）
+│   │   │   └── public/
+│   │   │       ├── items/route.ts    # 公开API（游标分页+ETag+限流）
+│   │   │       ├── daily/route.ts    # 公开日报API
+│   │   │       ├── daily/[date]/route.ts
+│   │   │       ├── hot-topics/route.ts
+│   │   │       └── version/route.ts  # API版本文档
+│   │   └── feed/
+│   │       ├── route.ts      # /feed.xml - 精选文章
+│   │       ├── all/route.ts  # /feed/all.xml - 全部文章
+│   │       ├── daily/route.ts # /feed/daily.xml - 日报
+│   │       └── category/[cat]/route.ts  # /feed/category/{cat}.xml
+│   ├── components/
+│   │   ├── ArticleCard.tsx   # 文章卡片（含评分色标+时间格式化）
+│   │   ├── CategoryFilter.tsx # 分类筛选按钮组
+│   │   ├── DailyReportView.tsx # 日报渲染组件
+│   │   ├── DateGroup.tsx     # 日期分组容器（时间线样式）
+│   │   ├── Header.tsx        # 顶部导航
+│   │   └── PeriodReportView.tsx # 周报/月刊渲染组件
+│   ├── lib/
+│   │   ├── supabase.ts       # Supabase 客户端（public + admin）
+│   │   ├── classifier.ts     # 文章五分类分类器
+│   │   ├── generate-report.ts # 日报生成逻辑（被 API 路由使用）
+│   │   └── public-api-utils.ts # 公开API工具（限流/ETag/游标/RSS构建）
+│   ├── scripts/              # ⭐ 管道脚本（GitHub Actions 调用）
+│   │   ├── run-pipeline.ts   # 管道入口：5步串行执行
+│   │   ├── fetch-sources.ts  # Step 1: 从48个信源抓取文章
+│   │   ├── pre-filter.ts     # Step 2: 关键词+LLM相关性过滤
+│   │   ├── enrich-articles.ts # Step 3: 正文补全+日期提取
+│   │   ├── llm-score.ts      # Step 4: LLM五维度评分
+│   │   ├── cluster-events.ts # Step 5: bigram Jaccard话题聚类
+│   │   ├── generate-reports.ts # 日报/周报/月刊生成（CLI）
+│   │   ├── init-sources.ts   # 初始化信源数据到数据库
+│   │   ├── cleanup.ts        # 清理30天前旧数据
+│   │   ├── score-articles.ts # ⚠️ 旧版评分（已废弃，用 llm-score.ts）
+│   │   ├── reclassify.ts     # 重新分类已有文章
+│   │   └── backfill-excerpts.ts # 补填摘要
+│   └── types/index.ts        # TypeScript 类型定义
+├── supabase/schema.sql       # 完整数据库 DDL
+├── .github/workflows/
+│   ├── fetch.yml             # 每小时管道（fetch→prefilter→enrich→score→cluster）
+│   └── daily-report.yml      # 每日00:00 UTC = 08:00 北京时间生成日报
+├── .env.example              # 环境变量模板
+├── next.config.js            # Next.js 配置 + RSS rewrite 规则
+├── tailwind.config.ts
+└── package.json
 ```
 
 ---
 
-## 七、下一步行动清单
+## 四、数据库表结构
 
-### 给下一位 AI 的明确指令：
+| 表名 | 用途 | 关键字段 |
+|---|---|---|
+| `sources` | 信源管理 | id, name, url, type(government/association/media/thinktank/exchange), category, priority(T1/T1.5/T2), weight, rss, selector, active |
+| `articles` | 文章 | id(UUID), title, link(UNIQUE), content, excerpt, pub_date, source_id, source_name, category, score, score_dimensions(JSONB), scored_at, scoring_method(rule/llm), pre_filtered, ai_reason, status(pending/selected/rejected), is_selected |
+| `topic_clusters` | 话题聚类 | id, primary_article_id, primary_title, primary_score, related_article_ids, related_count, source_count, unique_sources, max_score, cluster_date |
+| `daily_reports` | 日报 | id, report_date(UNIQUE), report_title, sections(JSONB), total_articles, executive_summary |
+| `weekly_reports` | 周报 | id, year, week_number(UNIQUE), report_title, section_*(JSONB×5), executive_summary, key_insights, trend_analysis |
+| `monthly_reports` | 月刊 | id, year, month(UNIQUE), report_title, section_*(JSONB×5), editorial_board(JSONB), executive_summary, monthly_overview, trend_charts |
+| `events` | ⚠️ 旧事件表（已弃用，被 topic_clusters 取代） |
+| `report_archives` | 归档（⚠️ 已定义但未使用） |
 
-**第一步：配置数据库（最优先）**
-1. 帮用户在 Supabase 创建项目
-2. 执行 `supabase/schema.sql`
-3. 配置 `.env.local`
-4. 运行 `npm run init` 导入信源
+**文章分类体系（articles.category）：**
+- `frontier` — 前沿解读
+- `industry_model` — 行业前沿模式
+- `regulatory` — 前沿监管新闻
+- `dispute` — 前沿争议解决
+- `normative` — 前沿规范文件
 
-**第二步：实现采集脚本**
-1. 先写 RSS 采集（稳定）
-2. 再写 HTML 抓取（针对特定网站）
-3. 测试：运行 `npm run fetch`，检查数据库是否有数据
-
-**第三步：实现评分脚本**
-1. 先做规则引擎（快速验证）
-2. 再接入 LLM API（精确评分）
-3. 测试：运行 `npm run score`，检查评分是否合理
-
-**第四步：实现日报生成**
-1. 写 `generate-daily.ts`
-2. 配置 GitHub Actions 定时任务
-3. 测试：手动运行一次，检查日报是否生成
-
-**第五步：完善前端**
-1. 让首页显示真实数据（从 Supabase 读取）
-2. 完成"全部文章"页
-3. 完成"日报详情"页
-
-**第六步：实现周报和月刊**
-1. 写 `generate-weekly.ts`
-2. 写 `generate-monthly.ts`
-3. 按用户提供的结构生成 PDF
+**注意：** sources.json 中的 category 是旧体系 (policy/market/risk/innovation)，文章入库后由 classifier.ts 重新分类为五体系。
 
 ---
 
-## 八、重要提醒
+## 五、数据管道（核心）
 
-### ⚠️ 用户偏好（必须记住）
+### 5.1 管道流程
 
-1. **月刊结构不能变**：必须按照用户现有五月刊的五大板块
-2. **编委会名单**：主编田江涛，副主编沈龙龙（Leo）
-3. **设计风格**：深色 Hero + 蜂蜜黄强调色 + 蓝色主色调
-4. **去 AI 化**：所有自动生成的内容要走"去 AI 化"流程（用 `humanizer` 技能）
+GitHub Actions 每小时执行一次 `run-pipeline.ts`，5步串行：
 
-### ⚠️ 技术限制
+| 步骤 | 脚本 | 功能 | 耗时 |
+|---|---|---|---|
+| 1 | fetch-sources.ts | 遍历48个信源，RSS/HTML抓取，去重入库 | ~3min |
+| 2 | pre-filter.ts | 关键词匹配 + LLM批量相关性判断，标记 pre_filtered | ~5min |
+| 3 | enrich-articles.ts | 实时抓取文章全文，补全 excerpt 和 pub_date | ~10min |
+| 4 | llm-score.ts | LLM 五维度评分（每维度0-20，总分0-100），写入 score/score_dimensions/ai_reason | ~10min |
+| 5 | cluster-events.ts | bigram Jaccard 相似度(阈值0.42) + Union-Find 聚类 → topic_clusters | ~1min |
 
-1. **微信公众号文章难抓**：建议用现成的 `wechat-article-fetch` 技能
-2. **RSS 信源可能失效**：需要定期维护 `sources.json`
-3. **LLM API 费用**：建议设每日预算上限（比如 $5/天）
+**总耗时约 28-33 分钟。** 超时设置 35 分钟。
 
-### ⚠️ 法律合规
+### 5.2 日报生成
 
-1. **版权问题**：采集的文章只显示标题+摘要，链接回原文
-2. **数据隐私**：用户邮箱/订阅信息要加密存储
-3. **监管合规**：平台本身不提供投资建议，只做资讯聚合
+每天 08:00 北京时间（00:00 UTC）由 `daily-report.yml` 触发 `generate-reports.ts daily`。
 
----
+日报包含 7 个板块：今日头条(top5)、前沿解读、行业前沿模式、前沿监管新闻、前沿争议解决、前沿规范文件、深度解读(top5)。
 
-## 九、联系信息
+### 5.3 周报/月刊
 
-**用户：** Leo 沈龙龙  
-**邮箱：** 2012566363@qq.com  
-**微信：** （用户微信，可用于紧急沟通）  
-**带教律师：** 田江涛（保理业务专家）  
-
-**项目位置：**
-- 本地：`/Users/null/WorkBuddy/2026-07-04-23-35-48/factoring-hot/`
-- 静态演示：`factoring-hot/index-standalone.html`（双击可在浏览器打开）
+通过 CLI 手动触发或 API 端点生成：
+```bash
+npm run report:weekly -- 2026 28    # 2026年第28周
+npm run report:monthly -- 2026 7    # 2026年7月
+```
 
 ---
 
-## 十、附录：参考资源
+## 六、环境变量
 
-1. **AI HOT 原版：** https://aihot.virxact.com
-2. **卡兹克微信公众号：** 数字生命卡兹克（可搜索"AI HOT 搭建"）
-3. **Supabase 文档：** https://supabase.com/docs
-4. **Next.js 文档：** https://nextjs.org/docs
-5. **Tailwind CSS：** https://tailwindcss.com/docs
-6. **保理业务参考：** 《中国保理法：原理、问题与实务》（刘剑峰著，法律出版社2025年版）
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+
+# LLM（预过滤和评分用）
+LLM_API_KEY=...
+LLM_API_URL=https://api.deepseek.com/v1    # 或 Step API
+LLM_MODEL=step-3.7-flash
+
+# API 认证（POST 端点）
+API_KEY=...
+
+# Vercel
+VERCEL_TOKEN=...
+
+# 站点
+NEXT_PUBLIC_SITE_URL=https://factoring-hot.vercel.app
+NEXT_PUBLIC_SITE_NAME=保理 HOT
+```
+
+**GitHub Actions Secrets 需要同步配置以上所有变量。**
 
 ---
 
-**交接完成。祝下一位 AI 助手顺利！** 🚀
+## 七、前端页面现状
+
+| 页面 | 路由 | 状态 | 说明 |
+|---|---|---|---|
+| 首页热榜 | `/` | ✅ 完成 | 按日期分组时间线，分类筛选+搜索+日期范围 |
+| 全部文章 | `/all` | ✅ 完成 | 分页(50/页)+搜索+分类筛选 |
+| 文章详情 | `/article/[id]` | ✅ 完成 | 评分+维度+AI理由+全文（实时抓取） |
+| 热门话题 | `/topics` | ✅ 完成 | topic_clusters 最近14天 |
+| 日报 | `/report` | ✅ 完成 | 7板块结构，fallback到最近日报 |
+| 周报 | `/report/weekly` | ✅ 完成 | 侧边栏列表+5板块详情 |
+| 月刊 | `/report/monthly` | ✅ 完成 | 侧边栏列表+5板块+封面品牌 |
+| 归档 | `/archive` | ⚠️ 占位页 | 只显示"暂无归档报告"，无实际功能 |
+| 公开API | `/api/public/*` | ✅ 完成 | 游标分页+ETag+限流(60/min/IP)+CORS |
+| RSS | `/feed/*.xml` | ✅ 完成 | 4路feed（精选/全部/日报/分类） |
+
+---
+
+## 八、已知问题和待优化项
+
+### 🔴 需要修复
+
+1. **`/archive` 归档页是空壳** — 只显示占位文字，没有接入日报/周报/月刊数据。应改造成报告归档中心，列出所有历史报告。
+
+2. **月刊 `editorial_board` 从未填充** — monthly_reports 表有此字段，月报配置中有主编"田江涛"、副主编"沈龙龙（Leo）"，但 `generate-reports.ts` 和 `monthly/route.ts` 都没有写入此字段。
+
+3. **根目录 `scripts/` 有4个废弃脚本** — `scripts/fetch-sources.ts`、`scripts/ai-score.ts`、`scripts/cluster-events.ts`、`scripts/generate-report.ts` 是旧版代码，已被 `src/scripts/` 取代。应清理避免混淆。
+
+4. **`src/lib/supabase.ts` 导出的共享客户端未被 API 路由使用** — 每个 API 路由都自己 `createClient()`，共享的 `getSelectedArticles()`、`getAllArticles()` 等辅助函数无人调用。应统一引用。
+
+### 🟡 可以优化
+
+5. **首页 `/` 用 `any[]` 类型** — `page.tsx` 和 `DateGroup.tsx` 中文章用 `any[]` 而非 `Article[]`，丢失类型安全。
+
+6. **无自定义 404 页面** — 没有 `not-found.tsx`。
+
+7. **公开 API 限流是内存级** — `public-api-utils.ts` 用 Map 做限流，Vercel serverless 多实例下限流无效（60×N）。应换 Redis/Upstash。
+
+8. **管道无并发保护** — `cron/run-pipeline/route.ts` 没有"正在运行"锁，如果上一次未结束又触发新一次会冲突。
+
+9. **`next.config.js` 中 `images.unoptimized: true`** — 禁用了所有图片优化，`remotePatterns` 配置形同虚设。
+
+10. **周报/月刊没有定时自动生成** — 只有日报有 cron，周报和月刊需要手动触发。
+
+### 🟢 增强方向
+
+11. **微信公众号文章接入** — 当前48个信源无微信公众号，但用户现有月刊内容主要来自微信。
+12. **PDF 导出** — `report_archives` 表已预留 pdf_url 字段，但无实现。
+13. **邮件订阅** — 无实现。
+14. **搜索增强** — 当前用 `ilike` 做模糊搜索，数据量大后应换 PostgreSQL 全文检索或 pg_trgm。
+
+---
+
+## 九、本地开发
+
+```bash
+# 安装依赖
+npm install
+
+# 本地开发
+npm run dev
+
+# 构建
+npm run build
+
+# 初始化信源数据到数据库
+npm run init
+
+# 手动运行完整管道
+npx tsx src/scripts/run-pipeline.ts
+
+# 单独运行某一步
+npx tsx src/scripts/fetch-sources.ts      # 抓取
+npx tsx src/scripts/pre-filter.ts         # 预过滤
+npx tsx src/scripts/enrich-articles.ts    # 正文补全
+npx tsx src/scripts/llm-score.ts          # LLM评分
+npx tsx src/scripts/cluster-events.ts     # 聚类
+
+# 生成报告
+npx tsx src/scripts/generate-reports.ts daily [date]
+npx tsx src/scripts/generate-reports.ts weekly [year] [week]
+npx tsx src/scripts/generate-reports.ts monthly [year] [month]
+npx tsx src/scripts/generate-reports.ts all              # 全部生成
+
+# 清理旧数据
+npx tsx src/scripts/cleanup.ts
+```
+
+---
+
+## 十、部署
+
+- **Vercel 自动部署**：push 到 `main` 分支即触发
+- **GitHub Actions**：
+  - `fetch.yml` — 每小时整点运行管道（超时35分钟）
+  - `daily-report.yml` — 每天 00:00 UTC 生成日报
+- **两个 workflow 都需要 Node.js 22**（已配置）
+- **Vercel 环境变量**和 **GitHub Secrets** 需同步配置第六节列出的所有变量
+
+---
+
+## 十一、评分体系
+
+五维度，每维度 0-20 分，总分 0-100：
+
+| 维度 | 字段名 | 含义 | 关键词示例 |
+|---|---|---|---|
+| 前沿解读 | frontier | 深度分析、趋势研究 | 解读、深度分析、趋势、白皮书 |
+| 行业前沿模式 | industry_model | 业务创新、新模式、市场动态 | 首单、落地、创新、ABS、科技赋能 |
+| 前沿监管新闻 | regulatory | 监管政策、法规变化 | 国务院、央行、监管、合规、政策 |
+| 前沿争议解决 | dispute | 纠纷案例、风险事件、处罚 | 案例、判决、纠纷、处罚、爆雷 |
+| 前沿规范文件 | normative | 规范性文件、行业标准 | 办法、规定、指引、征求意见 |
+
+优先级权重：T1=1.3, T1.5=1.0, T2=0.7  
+入选阈值：总分≥35 且 单维度≥8  
+每日上限：40篇
+
+---
+
+## 十二、信源概况
+
+共 48 个信源（41 个 active），按类型：
+
+| 类型 | 数量 | 说明 |
+|---|---|---|
+| government | 10 | 政府监管机构（央行、银保监、证监会等） |
+| association | 7 | 行业协会 |
+| media | 22 | 金融媒体 |
+| thinktank | 4 | 智库 |
+| exchange | 5 | 交易所 |
+
+信源配置文件：`config/sources.json`，每个信源包含 id/name/url/type/category/priority/weight/rss/selector/active 字段。
+
+---
+
+## 十三、关键设计决策记录
+
+1. **为什么用 server-side API routes 而不是 client-side Supabase** — Vercel 构建时如果 NEXT_PUBLIC_* 环境变量未设置，client-side Supabase 会静默失败。改用 server-side API routes 更可靠。
+
+2. **为什么 topic_clusters 取代 events 表** — events 表是最初设计，但实际聚类脚本 (cluster-events.ts) 使用 bigram Jaccard 算法，输出结构不同，所以新建了 topic_clusters 表。events 表保留但不再写入。
+
+3. **为什么文章分类和信源分类不同** — sources.json 的 category (policy/market/risk/innovation) 是信源本身的属性。文章入库后由 classifier.ts 根据内容重新分类为五体系 (frontier/industry_model/regulatory/dispute/normative)。
+
+4. **为什么用 GitHub Actions 而不是 Vercel Cron** — 管道运行需要 28-33 分钟，Vercel Serverless Functions 最长 5 分钟（即使 pro 也才 15 分钟），不够用。GitHub Actions 可设 35 分钟超时。
+
+5. **LLM 选择** — 使用 DeepSeek/Step API（OpenAI 兼容接口），模型 step-3.7-flash。不用 OpenAI 是因为成本和速度考虑。
+
+6. **文章时间格式** — 统一显示为 `2026年7月7日 14:30` 格式（年月日时分），不使用"刚刚"、"X小时前"等相对时间。
+
+---
+
+*本文档由 AI 基于代码分析生成，如有疑问请直接阅读对应源文件。*
