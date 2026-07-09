@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import Header from '@/components/Header';
 import CategoryFilter from '@/components/CategoryFilter';
 import DateGroup from '@/components/DateGroup';
@@ -111,6 +112,15 @@ export default function Home() {
 
   const dateGroups = useMemo(() => groupByDate(filteredArticles), [filteredArticles]);
 
+  // Today's top 3 by score, independent of active filters
+  const todayTop3 = useMemo(() => {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    return articles
+      .filter(a => new Date(a.pub_date).toISOString().slice(0, 10) === todayKey)
+      .sort((a, b) => (b.score || 0) - (a.score || 0))
+      .slice(0, 3);
+  }, [articles]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -124,6 +134,37 @@ export default function Home() {
             基于 48 个权威信源，AI 实时评分，五大板块聚焦行业前沿
           </p>
         </div>
+
+        {/* Today's Top 3 */}
+        {todayTop3.length > 0 && (
+          <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
+            <h2 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-1.5">
+              <span>🔥</span> 今日头条
+            </h2>
+            <div className="space-y-2.5">
+              {todayTop3.map((article, i) => (
+                <Link key={article.id} href={`/article/${article.id}`} className="flex items-start gap-3 group">
+                  <span
+                    className={`flex-shrink-0 w-5 h-5 mt-0.5 rounded text-[11px] font-bold flex items-center justify-center ${
+                      i === 0 ? 'bg-red-50 text-red-600' : i === 1 ? 'bg-orange-50 text-orange-600' : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-1">
+                      {article.title}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {article.source_name}
+                      {article.score != null ? ` · ${Math.round(article.score)} 分` : ''}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Search + Date Filter Bar */}
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
