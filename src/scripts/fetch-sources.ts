@@ -49,13 +49,21 @@ function extractDate($: cheerio.CheerioAPI, el: any): Date {
   // Try to find a date in nearby sibling or parent elements
   const parent = $(el).parent();
   const text = parent.text() + ' ' + $(el).closest('li').text();
-  // Match common Chinese date formats: 2026-07-06, 2026/07/06, 2026年07月06日, 2026.07.06
-  const dateMatch = text.match(/(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})/);
+  // Match common Chinese date formats with optional time: 2026-07-06 14:30, 2026年07月06日 14:30
+  const dateMatch = text.match(/(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})[日]?\s*(?:(\d{1,2}):(\d{2}))?/);
   if (dateMatch) {
-    const d = new Date(parseInt(dateMatch[1]), parseInt(dateMatch[2]) - 1, parseInt(dateMatch[3]));
-    if (!isNaN(d.getTime())) return d;
+    const y = parseInt(dateMatch[1]);
+    const m = parseInt(dateMatch[2]) - 1;
+    const d = parseInt(dateMatch[3]);
+    const h = dateMatch[4] ? parseInt(dateMatch[4]) : 0;
+    const min = dateMatch[5] ? parseInt(dateMatch[5]) : 0;
+    const result = new Date(y, m, d, h, min);
+    if (!isNaN(result.getTime())) return result;
   }
-  return new Date();
+  // Fallback: use midnight today in UTC so the date portion is still meaningful
+  // instead of "right now" which would make every article look like it was just published
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
 async function fetchRSS(source: Source): Promise<Article[]> {
@@ -79,7 +87,7 @@ async function fetchRSS(source: Source): Promise<Article[]> {
           excerpt: item.description
             ? item.description.replace(/<[^>]*>/g, '').substring(0, 200)
             : '',
-          pub_date: item.pubDate ? new Date(item.pubDate) : new Date(),
+          pub_date: item.pubDate ? new Date(item.pubDate) : new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()),
           source_id: source.id,
           source_name: source.name,
           category: classification.section,
@@ -130,7 +138,7 @@ async function fetchDahecube(source: Source): Promise<Article[]> {
           link,
           content: '',
           excerpt: item.summary || '',
-          pub_date: item.pubtime ? new Date(item.pubtime) : new Date(),
+          pub_date: item.pubtime ? new Date(item.pubtime) : new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()),
           source_id: source.id,
           source_name: source.name,
           category: classifyArticle(item.title, '').section,
@@ -170,7 +178,7 @@ async function fetch36kr(source: Source): Promise<Article[]> {
           link: link.startsWith('http') ? link : `https://www.36kr.com/p/${m.itemId}`,
           content: '',
           excerpt: '',
-          pub_date: m.publishTime ? new Date(m.publishTime) : new Date(),
+          pub_date: m.publishTime ? new Date(m.publishTime) : new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()),
           source_id: source.id,
           source_name: source.name,
           category: classifyArticle(m.widgetTitle, '').section,
@@ -204,7 +212,7 @@ async function fetchCcxi(source: Source): Promise<Article[]> {
           link: `https://www.ccxi.com.cn/news/detail/${item.id}`,
           content: '',
           excerpt: item.miaoshu && item.miaoshu !== '暂无' ? item.miaoshu : '',
-          pub_date: item.chuangjianshijian ? new Date(item.chuangjianshijian) : new Date(),
+          pub_date: item.chuangjianshijian ? new Date(item.chuangjianshijian) : new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()),
           source_id: source.id,
           source_name: source.name,
           category: classifyArticle(item.mingcheng, '').section,
@@ -381,7 +389,7 @@ export async function runFetch() {
     if (articles.length > 0) {
       const { error: insertError } = await supabase
         .from('articles')
-        .upsert(articles, { onConflict: 'link' });
+        .upsert(articles, { onConflict: 'link', ignoreDuplicates: true });
 
       if (insertError) {
         console.error(`✗ Insert failed for ${source.name}:`, insertError.message);
