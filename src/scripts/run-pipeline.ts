@@ -29,6 +29,17 @@ function runStep(name: string, script: string) {
 
 async function main() {
   const startTime = Date.now();
+  const args = process.argv.slice(2);
+  const fetchOnly = args.includes('--fetch-only');
+
+  if (fetchOnly) {
+    console.log('🔄 快速抓取模式（仅抓取，不评分不聚类）...\n');
+    runStep('1/1 抓取文章', 'src/scripts/fetch-sources.ts');
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`\n✅ 快速抓取完成，耗时 ${elapsed}s`);
+    return;
+  }
+
   console.log('🚀 开始执行全链路管道...\n');
 
   // Step 1: Fetch articles from sources
