@@ -3,6 +3,8 @@ import Parser from 'rss-parser';
 import { fetch as fetchHtml } from 'undici';
 import * as cheerio from 'cheerio';
 import { classifyArticle } from '../lib/classifier';
+import { isRelevant } from '../lib/relevance';
+import { sanitizePubDate } from '../lib/date-utils';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -385,6 +387,21 @@ export async function runFetch() {
     } else {
       articles = await fetchHtmlContent(source);
     }
+
+    // 相关性闸门 + 未来日期拦截（治本：过滤不相关与未来日期文章）
+    const passed: Article[] = [];
+    for (const a of articles) {
+      const rel = await isRelevant(a.title, a.content || a.excerpt || '');
+      if (!rel.relevant) {
+        console.log(`  ⏩ 跳过不相关: ${a.title.slice(0, 40)}`);
+        continue;
+      }
+      const safe = sanitizePubDate(a.pub_date);
+      // pub_date 列有 NOT NULL 约束：未来/非法日期统一回退为当前时间
+      a.pub_date = safe ? new Date(safe) : new Date();
+      passed.push(a);
+    }
+    articles = passed;
 
     if (articles.length > 0) {
       const { error: insertError } = await supabase
