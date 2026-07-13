@@ -143,7 +143,22 @@ async function enrichArticle(article: Article): Promise<{
       return null;
     }
 
+    // ── 防止 PDF / 二进制内容污染正文 ──
+    const ct = (response.headers.get('content-type') || '').toLowerCase();
+    if (
+      ct.includes('application/pdf')
+      || ct.includes('application/octet-stream')
+      || ct.startsWith('image/')
+      || ct.startsWith('video/')
+      || (!ct.includes('text/') && !ct.includes('html') && !ct.includes('xml'))
+    ) {
+      console.log(`  ⏩ 跳过非HTML: ${ct} for ${article.title.substring(0, 30)}`);
+      return null;
+    }
+
     const html = await response.text();
+    // 二次保险：即使 Content-Type 蒙混，%PDF 开头一律拦截
+    if (html.trimStart().startsWith('%PDF')) return null;
     const $ = cheerio.load(html);
 
     const mainText = extractMainText($);

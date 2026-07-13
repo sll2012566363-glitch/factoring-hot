@@ -54,7 +54,27 @@ async function fetchFullContent(url: string): Promise<string | null> {
       cache: 'no-store',
     });
     if (!res.ok) return null;
+
+    // ── 防止 PDF / 二进制 / 非 HTML 内容污染正文 ──
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
+    if (
+      contentType.includes('application/pdf')
+      || contentType.includes('application/octet-stream')
+      || contentType.startsWith('image/')
+      || contentType.startsWith('video/')
+      // 有些源站返回空或错误的 Content-Type，用 Accept 头兜底也不可靠，
+      // 所以不在白名单里的类型一律拒绝（只放行 text/html、text/xml、application/xhtml）
+      || (!contentType.includes('text/') && !contentType.includes('html') && !contentType.includes('xml'))
+    ) {
+      return null;
+    }
+
     const html = await res.text();
+
+    // ── 二次保险：即使 Content-Type 蒙混过关，%PDF 开头一律拦截 ──
+    if (html.trimStart().startsWith('%PDF')) {
+      return null;
+    }
     const $ = cheerio.load(html);
     $('script, style, nav, header, footer, .ad, .sidebar, .comment, .comments').remove();
 
