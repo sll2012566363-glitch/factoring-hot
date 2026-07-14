@@ -92,3 +92,14 @@ export function formatDateSafe(input: unknown): string {
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
   return `${get('year')}年${get('month')}月${get('day')}日 ${get('hour')}:${get('minute')}`;
 }
+
+/**
+ * 当前实时时间，精确到分钟（秒/毫秒归零）。
+ * 用途：抓不到真实发布日期的文章，回退为“真实的抓取时刻”，
+ * 而不是伪造“今日 00:00”。
+ */
+export function nowToMinute(): Date {
+  const d = new Date();
+  d.setSeconds(0, 0);
+  return d;
+}

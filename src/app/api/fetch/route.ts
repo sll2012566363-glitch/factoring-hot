@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import rssParser from 'rss-parser';
 import * as cheerio from 'cheerio';
+import { nowToMinute } from '../../../lib/date-utils';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,7 +40,7 @@ async function fetchRSS(source: Source) {
       title: item.title || '',
       link: item.link || '',
       content: cleanText(item.contentSnippet || item.content || ''),
-      pub_date: item.pubDate || new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).toISOString(),
+      pub_date: item.pubDate || nowToMinute().toISOString(),
       source_id: source.id,
       source_name: source.name,
       category: source.category,
@@ -83,7 +84,7 @@ async function fetchHTML(source: Source) {
           title,
           link,
           content: '',
-          pub_date: new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).toISOString(),
+          pub_date: nowToMinute().toISOString(),
           source_id: source.id,
           source_name: source.name,
           category: source.category,

@@ -4,7 +4,7 @@ import { fetch as fetchHtml } from 'undici';
 import * as cheerio from 'cheerio';
 import { classifyArticle } from '../lib/classifier';
 import { isRelevant } from '../lib/relevance';
-import { sanitizePubDate } from '../lib/date-utils';
+import { sanitizePubDate, nowToMinute } from '../lib/date-utils';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -62,10 +62,8 @@ function extractDate($: cheerio.CheerioAPI, el: any): Date {
     const result = new Date(y, m, d, h, min);
     if (!isNaN(result.getTime())) return result;
   }
-  // Fallback: use midnight today in UTC so the date portion is still meaningful
-  // instead of "right now" which would make every article look like it was just published
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // Fallback: 抓不到日期时，回退为真实的抓取时刻（精确到分钟），不再伪造“今日 00:00”
+  return nowToMinute();
 }
 
 async function fetchRSS(source: Source): Promise<Article[]> {
@@ -89,7 +87,7 @@ async function fetchRSS(source: Source): Promise<Article[]> {
           excerpt: item.description
             ? item.description.replace(/<[^>]*>/g, '').substring(0, 200)
             : '',
-          pub_date: item.pubDate ? new Date(item.pubDate) : new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()),
+          pub_date: item.pubDate ? new Date(item.pubDate) : nowToMinute(),
           source_id: source.id,
           source_name: source.name,
           category: classification.section,
@@ -140,7 +138,7 @@ async function fetchDahecube(source: Source): Promise<Article[]> {
           link,
           content: '',
           excerpt: item.summary || '',
-          pub_date: item.pubtime ? new Date(item.pubtime) : new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()),
+          pub_date: item.pubtime ? new Date(item.pubtime) : nowToMinute(),
           source_id: source.id,
           source_name: source.name,
           category: classifyArticle(item.title, '').section,
@@ -180,7 +178,7 @@ async function fetch36kr(source: Source): Promise<Article[]> {
           link: link.startsWith('http') ? link : `https://www.36kr.com/p/${m.itemId}`,
           content: '',
           excerpt: '',
-          pub_date: m.publishTime ? new Date(m.publishTime) : new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()),
+          pub_date: m.publishTime ? new Date(m.publishTime) : nowToMinute(),
           source_id: source.id,
           source_name: source.name,
           category: classifyArticle(m.widgetTitle, '').section,
@@ -214,7 +212,7 @@ async function fetchCcxi(source: Source): Promise<Article[]> {
           link: `https://www.ccxi.com.cn/news/detail/${item.id}`,
           content: '',
           excerpt: item.miaoshu && item.miaoshu !== '暂无' ? item.miaoshu : '',
-          pub_date: item.chuangjianshijian ? new Date(item.chuangjianshijian) : new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()),
+          pub_date: item.chuangjianshijian ? new Date(item.chuangjianshijian) : nowToMinute(),
           source_id: source.id,
           source_name: source.name,
           category: classifyArticle(item.mingcheng, '').section,
@@ -397,8 +395,8 @@ export async function runFetch() {
         continue;
       }
       const safe = sanitizePubDate(a.pub_date);
-      // pub_date 列有 NOT NULL 约束：未来/非法日期统一回退为当前时间
-      a.pub_date = safe ? new Date(safe) : new Date();
+      // pub_date 列有 NOT NULL 约束：未来/非法日期统一回退为“实时当前时间（精确到分钟）”
+      a.pub_date = safe ? new Date(safe) : nowToMinute();
       passed.push(a);
     }
     articles = passed;
