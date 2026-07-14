@@ -102,15 +102,15 @@ export default function AllArticles() {
   }, [articles, searchQuery]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
             全部文章
           </h1>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             查看所有采集到的保理与供应链金融相关资讯
           </p>
         </div>
@@ -125,7 +125,7 @@ export default function AllArticles() {
             placeholder="搜索文章标题、内容、来源..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-800 rounded-lg bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
 
@@ -148,14 +148,14 @@ export default function AllArticles() {
 
         {/* Loading / Load more */}
         {loading && articles.length === 0 && (
-          <div className="text-center py-12 text-gray-500">加载中...</div>
+          <div className="text-center py-12 text-gray-500 dark:text-gray-400">加载中...</div>
         )}
 
         {hasMore && !loading && articles.length > 0 && (
           <div className="text-center mt-6">
             <button
               onClick={loadMore}
-              className="px-6 py-2 bg-white text-gray-700 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-6 py-2 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 dark:text-gray-600 text-sm border border-gray-200 dark:border-gray-800 rounded-lg hover:bg-gray-50 dark:bg-gray-950 transition-colors"
             >
               加载更多
             </button>
@@ -169,7 +169,7 @@ export default function AllArticles() {
         )}
 
         {filteredArticles.length === 0 && !loading && (
-          <div className="text-center py-12 text-gray-500">
+          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
             {searchQuery ? `未找到与"${searchQuery}"相关的文章` : '暂无文章'}
           </div>
         )}

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Article } from '@/types';
+import { formatRelativeTime } from '@/lib/date-utils';
 
 interface ArticleCardProps {
   article: Article;
@@ -9,10 +10,10 @@ interface ArticleCardProps {
 }
 
 function getScoreColor(score: number): string {
-  if (score >= 80) return 'bg-red-50 text-red-600 border-red-200';
-  if (score >= 60) return 'bg-orange-50 text-orange-600 border-orange-200';
-  if (score >= 40) return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-  return 'bg-gray-50 text-gray-500 border-gray-200';
+  if (score >= 80) return 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900';
+  if (score >= 60) return 'bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-900';
+  if (score >= 40) return 'bg-yellow-50 dark:bg-yellow-950/40 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-900';
+  return 'bg-gray-50 dark:bg-gray-950 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-800';
 }
 
 function getScoreLabel(score: number): string {
@@ -33,9 +34,14 @@ export default function ArticleCard({ article, categoryName }: ArticleCardProps)
   };
 
   const score = article.score != null ? Math.round(article.score) : null;
+  const relTime = formatRelativeTime(article.pub_date);
+  // 封面图走 img-proxy，绕源站防盗链
+  const coverSrc = article.cover_image
+    ? `/api/img-proxy?url=${encodeURIComponent(article.cover_image)}`
+    : null;
 
   return (
-    <article className="group bg-white rounded-lg border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition-all duration-200">
+    <article className="group bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-sm transition-all duration-200">
       <div className="flex items-start gap-3">
         {/* Score badge on the left */}
         {score !== null && (
@@ -49,36 +55,52 @@ export default function ArticleCard({ article, categoryName }: ArticleCardProps)
 
         <div className="flex-1 min-w-0">
           {/* Title */}
-          <h3 className="text-sm font-semibold text-gray-900 mb-1.5 line-clamp-2 leading-snug">
-            <Link href={`/article/${article.id}`} className="hover:text-blue-600 transition-colors">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1.5 line-clamp-2 leading-snug">
+            <Link href={`/article/${article.id}`} className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
               {article.title}
             </Link>
           </h3>
-          
-          {/* Excerpt */}
-          {(article.excerpt || article.content) && (
-            <p className="text-xs text-gray-500 line-clamp-2 mb-2 leading-relaxed">
-              {article.excerpt || article.content}
-            </p>
+
+          {/* Excerpt + 封面缩略图 */}
+          {(article.excerpt || article.content || coverSrc) && (
+            <div className="flex items-start gap-3 mb-2">
+              {(article.excerpt || article.content) && (
+                <p className="flex-1 min-w-0 text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
+                  {article.excerpt || article.content}
+                </p>
+              )}
+              {coverSrc && (
+                <Link href={`/article/${article.id}`} className="flex-shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={coverSrc}
+                    alt=""
+                    loading="lazy"
+                    className="w-20 h-14 object-cover rounded-md border border-gray-100 dark:border-gray-800"
+                    onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }}
+                  />
+                </Link>
+              )}
+            </div>
           )}
 
           {/* Meta row */}
           <div className="flex items-center gap-2 text-xs flex-wrap">
             {categoryName && (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-600">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
                 {categoryName}
               </span>
             )}
-            <span className="text-gray-500">
+            <span className="text-gray-500 dark:text-gray-400">
               {article.source_name}
             </span>
-            <span className="text-gray-300">·</span>
-            <span className="text-gray-400">
-              {formatDate(article.pub_date)}
+            <span className="text-gray-300 dark:text-gray-600">·</span>
+            <span className="text-gray-400" title={formatDate(article.pub_date)} suppressHydrationWarning>
+              {relTime || formatDate(article.pub_date)}
             </span>
             {article.ai_reason && (
               <>
-                <span className="text-gray-300">·</span>
+                <span className="text-gray-300 dark:text-gray-600">·</span>
                 <span className="text-gray-400 italic line-clamp-1 max-w-[200px]" title={article.ai_reason}>
                   {article.ai_reason}
                 </span>
@@ -88,7 +110,7 @@ export default function ArticleCard({ article, categoryName }: ArticleCardProps)
               href={article.link}
               target="_blank"
               rel="noopener noreferrer"
-              className="ml-auto text-gray-300 hover:text-blue-500 transition-colors flex-shrink-0"
+              className="ml-auto text-gray-300 dark:text-gray-600 hover:text-blue-500 dark:hover:text-blue-400 transition-colors flex-shrink-0"
               title="查看原文"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

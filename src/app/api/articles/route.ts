@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
   const category = searchParams.get('category');
   const limitRaw = parseInt(searchParams.get('limit') || '40');
   const offsetRaw = parseInt(searchParams.get('offset') || '0');
-  const limit = Number.isNaN(limitRaw) ? 40 : limitRaw;
-  const offset = Number.isNaN(offsetRaw) ? 0 : offsetRaw;
+  const limit = Math.min(Math.max(Number.isNaN(limitRaw) ? 40 : limitRaw, 1), 500);
+  const offset = Math.max(Number.isNaN(offsetRaw) ? 0 : offsetRaw, 0);
   
   // 列表不返回 content_html（单条可达 30KB+，500 条能把响应撑到数 MB）；
   // content 只用于卡片摘要降级与搜索，截断后返回

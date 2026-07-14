@@ -28,6 +28,8 @@ export interface Article {
   score_dimensions?: Record<string, number>;
   scored_at?: string;
   scoring_method?: 'rule' | 'llm';
+  content_html?: string | null;
+  cover_image?: string | null;
   event_id?: string;
   event_title?: string;
   status?: 'pending' | 'selected' | 'rejected';

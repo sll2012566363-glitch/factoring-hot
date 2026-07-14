@@ -68,3 +68,26 @@
 .article-body pre code { background: none; padding: 0; }
 .article-body figure { margin: 1em 0; text-align: center; }
 .article-body figcaption { font-size: 13px; color: #888; margin-top: 4px; }
+
+/* ── 暗色模式 ── */
+.dark body {
+  color: #e5e7eb;
+  background: #0a0a0f;
+}
+.dark .article-body {
+  color: #d1d5db;
+}
+/* 原文自带 inline color（微信/新闻站 style="color:#333"）暗色下不可读，强制继承 */
+.dark .article-body :is(p, span, section, div, li, td, th, h1, h2, h3, h4, strong, em, b) {
+  color: inherit !important;
+  background-color: transparent !important;
+}
+.dark .article-body img { opacity: 0.9; border-radius: 4px; }
+.dark .article-body blockquote { border-left-color: #374151; color: #9ca3af; }
+.dark .article-body th, .dark .article-body td { border-color: #374151; }
+.dark .article-body th { background: #1f2937; }
+.dark .article-body a { color: #60a5fa; }
+.dark .article-body pre { background: #1f2937; }
+.dark .article-body code { background: #1f2937; }
+.dark .article-body pre code { background: none; }
+.dark .article-body figcaption { color: #6b7280; }

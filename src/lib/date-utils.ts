@@ -57,6 +57,26 @@ export function extractPubDate($: any): string | null {
 }
 
 /**
+ * 相对时间展示（对齐 AIHOT："16小时前"）。
+ * 超过 7 天或未来时间返回 null——调用方回退到绝对日期。
+ */
+export function formatRelativeTime(input: unknown): string | null {
+  if (input === null || input === undefined || input === '') return null;
+  const d = input instanceof Date ? input : new Date(input as string);
+  if (isNaN(d.getTime())) return null;
+  const diffMs = Date.now() - d.getTime();
+  if (diffMs < 0) return null;
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return '刚刚';
+  if (mins < 60) return `${mins}分钟前`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}小时前`;
+  const days = Math.floor(hours / 24);
+  if (days <= 7) return `${days}天前`;
+  return null;
+}
+
+/**
  * 统一的日期展示：固定按 Asia/Shanghai（北京时间）格式化，
  * null / 非法 → “日期不详”。避免服务器时区不同导致展示错位。
  */
