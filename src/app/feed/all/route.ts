@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
   const { data: articles, error } = await adminClient
     .from('articles')
     .select('*')
+    .or('pre_filtered.is.null,pre_filtered.eq.true')
     .gte('pub_date', since.toISOString())
     .order('pub_date', { ascending: false })
     .limit(100);

@@ -16,6 +16,9 @@ async function getArticles(): Promise<Article[]> {
     .select(
       'id, title, link, excerpt, content, source_name, category, score, pub_date, ai_reason, scoring_method, cover_image'
     )
+    // pre-filter.ts（hourly pipeline 2/5步）判不相关的文章排除展示——
+    // 之前这个字段判了但没人读，白判了
+    .or('pre_filtered.is.null,pre_filtered.eq.true')
     .order('score', { ascending: false })
     .order('pub_date', { ascending: false })
     .limit(500);

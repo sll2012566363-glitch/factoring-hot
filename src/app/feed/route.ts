@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     .from('articles')
     .select('*')
     .eq('is_selected', true)
+    .or('pre_filtered.is.null,pre_filtered.eq.true')
     .gte('pub_date', since.toISOString())
     .order('score', { ascending: false })
     .limit(50);

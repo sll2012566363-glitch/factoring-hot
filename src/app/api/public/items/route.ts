@@ -77,6 +77,8 @@ export async function GET(request: NextRequest) {
   let query = adminClient
     .from('articles')
     .select('*', { count: 'exact' })
+    // pre-filter.ts 判不相关的文章排除展示
+    .or('pre_filtered.is.null,pre_filtered.eq.true')
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(take + 1); // fetch one extra to detect if there's a next page
