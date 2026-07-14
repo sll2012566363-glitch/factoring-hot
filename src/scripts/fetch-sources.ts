@@ -387,9 +387,18 @@ export async function runFetch() {
     }
 
     // 相关性闸门 + 未来日期拦截（治本：过滤不相关与未来日期文章）
+    // 并发判断：LLM 兜底调用是同步阻塞的主要耗时来源，逐篇 await 会把一个
+    // ~20篇的批次拖到分钟级、累加 40 个信源后撞 runStep() 的 10 分钟内部
+    // 超时（2026-07-14 实测过）。同一信源内的文章并发判断，信源之间仍按
+    // 原样顺序 + 800ms 间隔跑，不会对外部站点或 LLM API 造成突发流量。
+    const relevanceResults = await Promise.all(
+      articles.map(async (a) => ({
+        article: a,
+        rel: await isRelevant(a.title, a.content || a.excerpt || '', { sourceId: source.id }),
+      }))
+    );
     const passed: Article[] = [];
-    for (const a of articles) {
-      const rel = await isRelevant(a.title, a.content || a.excerpt || '', { sourceId: source.id });
+    for (const { article: a, rel } of relevanceResults) {
       if (!rel.relevant) {
         console.log(`  ⏩ 跳过不相关: ${a.title.slice(0, 40)}`);
         continue;
