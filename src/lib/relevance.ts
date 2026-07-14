@@ -23,6 +23,33 @@ const WEAK_KEYWORDS = [
   '产融', '确权', '信用流转',
 ];
 
+// ---- 站点噪音黑名单：导航栏/机构名录/语言切换/协会党建组织活动 ----
+// 这些是"网站结构"或"协会内部事务"，不是行业资讯，无论来自什么信源、
+// 关键词打分多高，一律直接拦截。命中优先级高于白名单信源豁免。
+const NAV_NOISE_RE = /(名单|名录)$/;
+const SITE_FURNITURE_RE = /^(English|首页|时政要闻|总行新闻|党建动态|纪检工作|联系我们|会员服务热线|关于我们)>{0,3}$/;
+// 只匹配"活动/会议公告"式措辞，不匹配裸词——避免"党建引领 合规前行"这类
+// 只是标题里带党建框架语、实际是行业专家观点/分析文章的内容被误杀
+const ORG_INTERNAL_RE = /(党委召开|党支部.{0,10}(活动|会议|主题)|理论学习中心组|纪检工作|庆祝中国共产党成立|主题党日|志愿服务显担当|参观.{0,6}(中共|党史)|专业委员会$)/;
+
+function isSiteNoise(title: string): boolean {
+  const t = title.trim();
+  return NAV_NOISE_RE.test(t) || SITE_FURNITURE_RE.test(t) || ORG_INTERNAL_RE.test(t);
+}
+
+// ---- 保理/供应链金融专业信源白名单 ----
+// 精选的垂直信源，全部内容默认视为主题相关，跳过关键词打分——
+// 因为这类信源的列表页标题常被站点自身截断（省略号），关键词可能被切没，
+// 用通用关键词闸门反而会误杀这些信源本该保留的文章。
+// 仍需过一遍 isSiteNoise：协会官网也会混发党建/组织活动类非资讯内容。
+export const FACTORING_SOURCE_WHITELIST = new Set([
+  'syblxh-gd',  // 广东省商业保理协会
+  'syblxh-sz',  // 深圳市商业保理协会
+  'sinotf',     // 中国供应链金融网
+  'tfsino',     // 供应链金融研究院
+  'wanlian',    // 万联网
+]);
+
 function stripHtml(html: string): string {
   if (!html) return '';
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -76,6 +103,9 @@ async function llmJudge(
 
 /**
  * 判断文章是否与保理/供应链金融相关。
+ * - 标题命中站点噪音特征（导航/名录/协会党建组织活动）：直接判不相关，
+ *   不看来源、不看关键词——这类内容本来就不是资讯
+ * - 来源在保理专业信源白名单：判相关（跳过关键词打分，避免标题截断误杀）
  * - 关键词得分 >= 2：直接判相关（省 LLM 成本）
  * - 得分 < 2 且未开启 LLM：判不相关（保守，宁可漏不放）
  * - 得分 < 2 且开启 LLM：调 LLM 终判，失败也按不相关处理
@@ -83,8 +113,16 @@ async function llmJudge(
 export async function isRelevant(
   title: string,
   content: string,
-  opts?: { enableLLM?: boolean; signal?: AbortSignal },
+  opts?: { enableLLM?: boolean; signal?: AbortSignal; sourceId?: string },
 ): Promise<RelevanceResult> {
+  if (isSiteNoise(title)) {
+    return { relevant: false, method: 'skipped', score: 0, reason: 'site_noise' };
+  }
+
+  if (opts?.sourceId && FACTORING_SOURCE_WHITELIST.has(opts.sourceId)) {
+    return { relevant: true, method: 'skipped', score: 0, reason: 'source_whitelist' };
+  }
+
   const text = `${title}\n${stripHtml(content || '')}`;
   const score = keywordScore(text);
 

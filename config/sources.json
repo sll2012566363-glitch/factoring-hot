@@ -130,7 +130,7 @@
       "weight": 1.2,
       "rss": null,
       "selector": ".newslist li a",
-      "active": true
+      "active": false
     },
     {
       "id": "nafmii",

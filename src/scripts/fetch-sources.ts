@@ -389,7 +389,7 @@ export async function runFetch() {
     // 相关性闸门 + 未来日期拦截（治本：过滤不相关与未来日期文章）
     const passed: Article[] = [];
     for (const a of articles) {
-      const rel = await isRelevant(a.title, a.content || a.excerpt || '');
+      const rel = await isRelevant(a.title, a.content || a.excerpt || '', { sourceId: source.id });
       if (!rel.relevant) {
         console.log(`  ⏩ 跳过不相关: ${a.title.slice(0, 40)}`);
         continue;
