@@ -13,12 +13,27 @@ export const CONTENT_SELECTORS = [
 ];
 
 export const REMOVE_SELECTORS = [
+  // 按标签名
   'script', 'style', 'nav', 'header', 'footer', 'aside', 'form',
   'iframe', 'button', 'input', 'select',
+  // 广告与侧栏
   '.ad', '.advertisement', '.sidebar', '.comment', '.comments',
   '.share', '.social-share', '.related',
+  // 面包屑与分页
   '.breadcrumb', '.crumb', '.pagination', '.copyright',
+  // 工具栏
   '.toolbar', '.topbar', '.login', '.search-box', '.position', '.path',
+  // 中文新闻站常见导航栏容器（class/id 含这些关键词的一律当导航删）
+  '[class*="top-bar"]', '[class*="topbar"]', '[class*="nav-bar"]', '[class*="navbar"]',
+  '[class*="user-nav"]', '[class*="userNav"]', '[class*="head-nav"]', '[class*="headnav"]',
+  '[class*="site-nav"]', '[class*="sitenav"]', '[class*="main-nav"]', '[class*="mainnav"]',
+  '[id*="top-bar"]', '[id*="topbar"]', '[id*="nav-bar"]', '[id*="navbar"]',
+  '[class*="login-bar"]', '[class*="loginbar"]', '[class*="member-bar"]',
+  '[class*="tool-bar"]', '[class*="toolbar"]', '[class*="func-bar"]',
+  '[class*="subscription"]', '[class*="subscribe"]', '[class*="activate"]',
+  '[class*="cart"]', '[class*="shopping"]',
+  '[class*="jigou"]',   /* 经观智讯等机构入口 */
+  '[class*="smart-news"]', '[class*="smartinfo"]',
 ].join(', ');
 
 /** 链接密度剪枝：文本大半是链接的块（导航/页脚/推荐列表）直接删 */
@@ -51,6 +66,57 @@ function pruneBoilerplate($: cheerio.CheerioAPI, $root: any) {
     if (text.length > 0 && text.length < 300 && BOILERPLATE_RE.test(text)) {
       $el.remove();
     }
+  });
+}
+
+/**
+ * 前缀噪音剥离：正文容器顶部常混入导航栏/登录栏/订阅栏等非正文元素。
+ * 从容器头部逐个检查直接子元素，命中导航特征则删除，直到遇到真正的正文内容。
+ *
+ * 导航特征：
+ *  - 文本含 登录/注册/退出/激活/订阅/购物车/电子版 等关键词
+ *  - 文本极短（<30字符）且包含链接
+ *  - 元素 class/id 含 nav/top-bar/login/head/member/tool/cart 等
+ */
+const NAV_KEYWORDS = /登录|注册|退出|激活|电子版|购物车|经观智讯|智讯|Subscribe|subscribe|Login|login|Register|Sign\s*in|Cart|cart|会员|VIP/;
+function stripLeadingNoise($: cheerio.CheerioAPI, $root: any): void {
+  // 最多剥前 8 个子元素，防止误删正文
+  let stripped = 0;
+  const MAX_STRIP = 8;
+
+  $root.children().each((_i: number, el: any) => {
+    if (stripped >= MAX_STRIP) return false; // 停止遍历
+
+    const $el = $(el);
+    const tag = el.tagName?.toLowerCase() || '';
+    const cls = ($el.attr('class') || '') + ' ' + ($el.attr('id') || '');
+    const text = $el.text().replace(/\s+/g, ' ').trim();
+    const linkCount = $el.find('a').length;
+    const imgCount = $el.find('img').length;
+
+    // 有真实内容的元素（长文本 / 含图）→ 停止剥离
+    if (text.length > 80 || imgCount > 0) return false;
+
+    // 导航特征命中 → 删除
+    const isNavLike =
+      NAV_KEYWORDS.test(text) ||
+      NAV_KEYWORDS.test(cls) ||
+      /(nav|top-?bar|head-?nav|user-?nav|login-?bar|tool-?bar|member|func-?bar|subscription)/i.test(cls);
+
+    if (isNavLike || (text.length < 30 && linkCount > 0)) {
+      $el.remove();
+      stripped++;
+      // 不 return false → 继续检查下一个兄弟元素
+    } else if (text.length === 0 || tag === 'script' || tag === 'style') {
+      // 空标签 / 脚本 → 也删
+      $el.remove();
+      stripped++;
+    } else {
+      // 不确定是什么但也不像导航 → 停止
+      return false;
+    }
+
+    return undefined; // 继续下一个
   });
 }
 
@@ -100,6 +166,7 @@ export function extractContentHtml($: cheerio.CheerioAPI, baseUrl: string): Extr
       const $wrapped = cheerio.load(`<div id="__fallback">${parts.join('')}</div>`);
       const $fb = $wrapped('#__fallback');
       pruneBoilerplate($wrapped, $fb);
+      stripLeadingNoise($wrapped, $fb);
       return qualityGate(rewriteImages($wrapped, $fb, baseUrl, coverImage));
     }
     return { html: '', coverImage };
@@ -108,6 +175,8 @@ export function extractContentHtml($: cheerio.CheerioAPI, baseUrl: string): Extr
   // 剪掉容器内的链接密集块（侧栏/相关推荐/站点导航残留）与页脚样板文案
   pruneLinkDenseBlocks($, $content);
   pruneBoilerplate($, $content);
+  // 剥离顶部导航栏噪音（登录/注册/购物车/激活卡等混入正文容器的元素）
+  stripLeadingNoise($, $content);
 
   return qualityGate(rewriteImages($, $content, baseUrl, coverImage));
 }
