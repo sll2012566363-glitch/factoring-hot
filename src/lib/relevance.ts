@@ -81,8 +81,10 @@ async function llmJudge(
   snippet: string,
   signal?: AbortSignal,
 ): Promise<{ relevant: boolean; reason: string }> {
-  const apiKey = process.env.DEEPSEEK_API_KEY || process.env.LLM_API_KEY;
-  const baseUrl = process.env.LLM_BASE_URL || 'https://api.deepseek.com/v1';
+  // 项目实际配置的是 LLM_API_KEY/LLM_API_URL（当前指向 StepFun，非 DeepSeek）——
+  // DEEPSEEK_API_KEY/默认 DeepSeek 地址只作兜底，不要求项目一定用 DeepSeek
+  const apiKey = process.env.LLM_API_KEY || process.env.DEEPSEEK_API_KEY;
+  const baseUrl = process.env.LLM_API_URL || process.env.LLM_BASE_URL || 'https://api.deepseek.com/v1';
   const model = process.env.LLM_MODEL || 'deepseek-chat';
   if (!apiKey) throw new Error('缺少 LLM_API_KEY / DEEPSEEK_API_KEY');
 
@@ -97,7 +99,7 @@ async function llmJudge(
       response_format: { type: 'json_object' },
       temperature: 0,
     }),
-    signal,
+    signal: signal ?? AbortSignal.timeout(15000),
   });
   if (!resp.ok) throw new Error(`LLM HTTP ${resp.status}`);
   const data = await resp.json();

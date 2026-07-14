@@ -29,4 +29,5 @@ jobs:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_API_URL: ${{ secrets.LLM_API_URL }}
           LLM_MODEL: ${{ secrets.LLM_MODEL }}
+          RELEVANCE_LLM_ENABLED: 'true'
         run: npx tsx src/scripts/run-pipeline.ts
