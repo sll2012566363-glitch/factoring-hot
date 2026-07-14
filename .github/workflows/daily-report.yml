@@ -1,4 +1,4 @@
-name: Daily Report (8AM Beijing)
+name: Reports (Daily + Weekly, 8AM Beijing)
 
 on:
   schedule:
@@ -29,3 +29,14 @@ jobs:
           LLM_API_URL: ${{ secrets.LLM_API_URL }}
           LLM_MODEL: ${{ secrets.LLM_MODEL }}
         run: npx tsx src/scripts/generate-reports.ts daily
+
+      # 按当前 ISO 周重新生成，upsert on (year, week_number)：
+      # 一周内每天刷新一次，数据随文章增长而更新，周末即为定稿
+      - name: Generate weekly report
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_API_URL: ${{ secrets.LLM_API_URL }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+        run: npx tsx src/scripts/generate-reports.ts weekly

@@ -16,14 +16,13 @@ const MORE_LINKS = [
   { href: '/feedback', label: '反馈' },
 ];
 
+// 按浏览维度分组：热榜=实时聚合，日报/周报=定期报告，热门话题=事件聚类
+// 「全部」（与热榜重复）、「往期」（空壳无数据）、「月刊」（无生成管道）已下线
 const NAV_LINKS = [
   { href: '/', label: '热榜' },
-  { href: '/all', label: '全部' },
   { href: '/report', label: '日报' },
-  { href: '/topics', label: '热门话题' },
   { href: '/report/weekly', label: '周报' },
-  { href: '/report/monthly', label: '月刊' },
-  { href: '/archive', label: '往期' },
+  { href: '/topics', label: '热门话题' },
 ];
 
 export default function Header({ title = '保理热榜', showNav = true }: HeaderProps) {
