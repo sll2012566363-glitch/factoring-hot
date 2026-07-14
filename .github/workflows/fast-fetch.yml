@@ -21,12 +21,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # 相关性 LLM 终判不放这里：isRelevant() 逐篇同步调用、无并发，
+      # 实测把原本 2 分钟的抓取拖到 10+ 分钟，撞上下一轮 10 分钟触发。
+      # LLM 判断只在下面的 hourly fetch.yml 开（35 分钟预算够用）——
+      # 这一路关键词判不相关的文章不会入库，下一次 hourly 全量管道
+      # 重新抓到同一 URL 时会用 LLM 复判，最多晚 1 小时生效，可接受
       - name: Fast fetch (articles only, no scoring)
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          LLM_API_URL: ${{ secrets.LLM_API_URL }}
-          LLM_MODEL: ${{ secrets.LLM_MODEL }}
-          RELEVANCE_LLM_ENABLED: 'true'
         run: npx tsx src/scripts/run-pipeline.ts --fetch-only
