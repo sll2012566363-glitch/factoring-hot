@@ -43,3 +43,28 @@
     overflow: hidden;
   }
 }
+
+/* ── 文章正文 HTML 渲染（wx-kit 风格，对齐 AIHOT 阅读体验）── */
+.article-body {
+  max-width: 720px;
+  margin: 0 auto;
+  line-height: 1.8;
+  color: #222;
+  font-size: 16px;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+.article-body img { max-width: 100%; height: auto; border-radius: 4px; margin: 12px 0; display: block; }
+.article-body p { margin: 0.8em 0; }
+.article-body h1, .article-body h2, .article-body h3, .article-body h4 { margin-top: 1.2em; margin-bottom: 0.6em; font-weight: 600; }
+.article-body blockquote { border-left: 3px solid #ddd; padding-left: 16px; margin: 1em 0; color: #555; }
+.article-body table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+.article-body th, .article-body td { border: 1px solid #e5e7eb; padding: 8px 12px; text-align: left; }
+.article-body th { background: #f9fafb; font-weight: 600; }
+.article-body ul, .article-body ol { padding-left: 2em; margin: 0.8em 0; }
+.article-body a { color: #2563eb; text-decoration: underline; }
+.article-body pre { background: #f3f4f6; padding: 12px 16px; border-radius: 6px; overflow-x: auto; font-size: 14px; margin: 1em 0; }
+.article-body code { background: #f3f4f6; padding: 2px 4px; border-radius: 3px; font-size: 14px; }
+.article-body pre code { background: none; padding: 0; }
+.article-body figure { margin: 1em 0; text-align: center; }
+.article-body figcaption { font-size: 13px; color: #888; margin-top: 4px; }

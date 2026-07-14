@@ -24,9 +24,14 @@ export async function GET(request: NextRequest) {
   const limit = Number.isNaN(limitRaw) ? 40 : limitRaw;
   const offset = Number.isNaN(offsetRaw) ? 0 : offsetRaw;
   
+  // 列表不返回 content_html（单条可达 30KB+，500 条能把响应撑到数 MB）；
+  // content 只用于卡片摘要降级与搜索，截断后返回
   let query = supabase
     .from('articles')
-    .select('*', { count: 'exact' })
+    .select(
+      'id, title, link, excerpt, content, source_name, category, score, pub_date, ai_reason, scoring_method, score_dimensions, cover_image, created_at',
+      { count: 'exact' }
+    )
     .order('score', { ascending: false })
     .order('pub_date', { ascending: false })
     .range(offset, offset + limit - 1);
@@ -40,13 +45,18 @@ export async function GET(request: NextRequest) {
   }
   
   const { data: articles, error, count } = await query;
-  
+
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  
+
+  const slim = (articles || []).map((a) => ({
+    ...a,
+    content: a.content ? a.content.substring(0, 300) : a.content,
+  }));
+
   return NextResponse.json({
-    articles: articles || [],
+    articles: slim,
     total: count || 0,
     date: date || 'all',
   });

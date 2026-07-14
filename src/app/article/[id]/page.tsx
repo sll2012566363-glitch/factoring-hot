@@ -1,7 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { cache } from 'react';
+import type { Metadata } from 'next';
 import * as cheerio from 'cheerio';
+import { extractContentHtml, extractPlainText } from '@/lib/extract-content';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,16 +19,9 @@ const SECTION_NAMES: Record<string, string> = {
   normative: '前沿规范文件',
 };
 
-const CONTENT_SELECTORS = [
-  'article', '.article-content', '.content', '#content',
-  '.post-body', '.entry-content', '.TRS_Editor', '.text',
-  '.detail-content', '.news-content',
-];
-
 /** 从正文中提取摘要：取前2个完整句子 */
 function extractExcerptFromContent(content: string): string {
   if (!content) return '';
-  // Split by sentence-ending punctuation
   const sentences: string[] = [];
   const parts = content.split(/(?<=[。！？])/);
   let total = 0;
@@ -41,8 +37,8 @@ function extractExcerptFromContent(content: string): string {
   return sentences.join('');
 }
 
-/** 从URL实时抓取完整正文（不截断） */
-async function fetchFullContent(url: string): Promise<string | null> {
+/** 从URL实时抓取完整正文（HTML版 + 纯文本版） */
+async function fetchFullContent(url: string): Promise<{ html: string; text: string; coverImage: string | null } | null> {
   try {
     const res = await fetch(url, {
       headers: {
@@ -62,40 +58,23 @@ async function fetchFullContent(url: string): Promise<string | null> {
       || contentType.includes('application/octet-stream')
       || contentType.startsWith('image/')
       || contentType.startsWith('video/')
-      // 有些源站返回空或错误的 Content-Type，用 Accept 头兜底也不可靠，
-      // 所以不在白名单里的类型一律拒绝（只放行 text/html、text/xml、application/xhtml）
       || (!contentType.includes('text/') && !contentType.includes('html') && !contentType.includes('xml'))
     ) {
       return null;
     }
 
-    const html = await res.text();
+    const rawHtml = await res.text();
 
     // ── 二次保险：即使 Content-Type 蒙混过关，%PDF 开头一律拦截 ──
-    if (html.trimStart().startsWith('%PDF')) {
+    if (rawHtml.trimStart().startsWith('%PDF')) {
       return null;
     }
-    const $ = cheerio.load(html);
-    $('script, style, nav, header, footer, .ad, .sidebar, .comment, .comments').remove();
+    const $ = cheerio.load(rawHtml);
+    const { html, coverImage } = extractContentHtml($, url);
+    if (!html || html.length < 50) return null;
 
-    for (const sel of CONTENT_SELECTORS) {
-      const $el = $(sel).first();
-      if ($el.length) {
-        const text = $el.text().replace(/\s+/g, ' ').trim();
-        if (text.length > 80) return text;
-      }
-    }
-    const paragraphs: string[] = [];
-    $('p').each((_i, el) => {
-      const t = $(el).text().replace(/\s+/g, ' ').trim();
-      if (t.length > 20) paragraphs.push(t);
-    });
-    if (paragraphs.length > 0) {
-      paragraphs.sort((a, b) => b.length - a.length);
-      return paragraphs.slice(0, 30).join(' ');
-    }
-    const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
-    return bodyText.length > 80 ? bodyText : null;
+    const text = extractPlainText(html);
+    return { html, text, coverImage };
   } catch {
     return null;
   }
@@ -105,45 +84,84 @@ interface PageProps {
   params: { id: string };
 }
 
-export default async function ArticleDetailPage({ params }: PageProps) {
-  const { data: article, error } = await supabase
+/** 同一请求内 generateMetadata 与页面组件共享查询结果 */
+const getArticle = cache(async (id: string) => {
+  const { data, error } = await supabase
     .from('articles')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
+  return error ? null : data;
+});
 
-  if (error || !article) {
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const article = await getArticle(params.id);
+  if (!article) return { title: '文章不存在 · 保理热榜' };
+  const description = (article.excerpt || article.content || '').substring(0, 120);
+  const cover = (article as any).cover_image || undefined;
+  return {
+    title: `${article.title} · 保理热榜`,
+    description,
+    openGraph: {
+      title: article.title,
+      description,
+      type: 'article',
+      ...(cover ? { images: [{ url: cover }] } : {}),
+    },
+  };
+}
+
+export default async function ArticleDetailPage({ params }: PageProps) {
+  const article = await getArticle(params.id);
+
+  if (!article) {
     notFound();
   }
 
-  // ── 正文：取完整内容，不够就实时抓 ──
+  // ── 正文HTML：优先用已存储的content_html，否则实时抓取 ──
+  let contentHtml = (article as any).content_html || null;
   let content = article.content;
-  const contentIncomplete = !content || content.length < 50
-    || (content.length < 3000 && !/[。！？）》"']\s*$/.test(content.trim()));
-  if (contentIncomplete) {
+  let coverImage = (article as any).cover_image || null;
+
+  const needsFetch = !contentHtml && (!content || content.length < 50
+    || (content.length < 3000 && !/[。！？）》"']\s*$/.test(content.trim())));
+
+  if (needsFetch) {
     const live = await fetchFullContent(article.link);
     if (live) {
-      content = live;
-      // Persist full content for next visit
-      await supabase.from('articles').update({ content }).eq('id', article.id);
+      contentHtml = live.html;
+      content = live.text;
+      if (!coverImage && live.coverImage) coverImage = live.coverImage;
+      // Persist for next visit
+      const updatePayload: Record<string, any> = {
+        content: live.text.substring(0, 5000),
+        content_html: live.html,
+      };
+      if (coverImage) updatePayload.cover_image = coverImage;
+      await supabase.from('articles').update(updatePayload).eq('id', article.id);
     }
   }
 
   // ── 摘要：三层优先级 ──
   let excerpt = '';
   if (article.scoring_method === 'llm' && article.excerpt && article.excerpt.length > 10) {
-    // 1. LLM生成的摘要最好
     excerpt = article.excerpt;
   } else if (content && content.length > 30) {
-    // 2. 从正文取前2个完整句子
     excerpt = extractExcerptFromContent(content);
   } else if (article.excerpt) {
-    // 3. 回退到已有excerpt
     excerpt = article.excerpt;
   }
 
   const pubDate = new Date(article.pub_date);
   const sectionName = SECTION_NAMES[article.category] || '监管新闻';
+
+  const formatDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+    const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    return `${y}年${m}月${day}日 ${time}`;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -168,7 +186,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
             </span>
           )}
           <time className="text-xs text-gray-400" dateTime={article.pub_date}>
-            {pubDate.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
+            {formatDate(pubDate)}
           </time>
           {article.scoring_method && (
             <>
@@ -221,8 +239,21 @@ export default async function ArticleDetailPage({ params }: PageProps) {
           </div>
         )}
 
-        {/* Content — 完整正文，不截断 */}
-        {content && content.length > 20 ? (
+        {/* Content — 优先渲染HTML，降级为纯文本 */}
+        {(contentHtml || (content && content.length > 20)) && (
+          <div className="flex items-center gap-3 mb-4 mt-2">
+            <span className="text-xs text-gray-400 tracking-widest">原文</span>
+            <div className="flex-1 border-t border-gray-200"></div>
+          </div>
+        )}
+        {contentHtml ? (
+          <div className="bg-white rounded-lg border border-gray-200 p-6 sm:p-8">
+            <article
+              className="article-body"
+              dangerouslySetInnerHTML={{ __html: contentHtml }}
+            />
+          </div>
+        ) : content && content.length > 20 ? (
           <div className="bg-white rounded-lg border border-gray-200 p-6 sm:p-8">
             <div className="text-gray-700 leading-7 text-[15px] space-y-4">
               {content.split(/(?<=[。！？\n])\s*/).filter((p: string) => p.trim().length > 5).map((para: string, i: number) => (
@@ -258,6 +289,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
           </div>
         </div>
       </main>
+
     </div>
   );
 }
