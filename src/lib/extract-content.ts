@@ -185,16 +185,24 @@ export function extractContentHtml($: cheerio.CheerioAPI, baseUrl: string): Extr
 }
 
 /**
- * 判断一张图是否像"真正的封面/配图"（而非 favicon / 图标 / emoji / 装饰线）。
- * 规则：宽或高任一 < 60px → 不是正经封面图。
+ * 判断一张图是否像"真正的封面/配图"（而非 favicon / 图标 / logo / 占位图 / 装饰线）。
+ * 两层规则：
+ *  1) URL 尺寸参数（如 ?w=16 / _16x16）→ 任一 < 60px 判定太小
+ *  2) URL 路径含站点装饰图特征词（logo / icon / card / subscribe / default 等）→ 不是文章配图
  */
 function looksLikeRealImage(src: string): boolean {
-  // URL 里带尺寸参数的（如 ?w=16 或 _16x16）直接判定太小
+  // 1) URL 里带尺寸参数的（如 ?w=16 或 _16x16）直接判定太小
   if (/(?:^|[/=_])(\d{1,3})[x_×](\d{1,3})(?:[/.?]|$)/.test(src)) {
     const w = parseInt(RegExp.$1, 10);
     const h = parseInt(RegExp.$2, 10);
     if ((w > 0 && w < 60) || (h > 0 && h < 60)) return false;
   }
+
+  // 2) 站点装饰图特征词：这些基本是 logo / 占位图 / 订阅图标，不是文章配图
+  const DECORATIVE_RE = /(^|\/|[_-])(logo|icon|card|subscribe|banner|head[_\-]?logo|avatar|qr|qrcode|wechat|favicon|small|thumb|mini)[._\-/]/i;
+  //    default/defalut 仅当出现在文件名（如 default.jpg），排除 /image/default/ 这类媒体目录误判
+  const DEFAULT_FILE_RE = /(default|defalut)\./i;
+  if (DECORATIVE_RE.test(src) || DEFAULT_FILE_RE.test(src)) return false;
   return true;
 }
 
