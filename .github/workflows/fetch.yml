@@ -22,6 +22,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # RELEVANCE_LLM_ENABLED 暂时关闭：run-pipeline.ts 的 runStep() 用
+      # execSync(..., {timeout: 600_000}) 起子进程，途经 /bin/sh -c "npx tsx ..."
+      # 这层壳——SIGTERM 打不穿 npx→tsx→node 这条进程链，超时后声明步骤"失败"
+      # 但真正在跑的抓取进程杀不死，会变孤儿继续跑、继续写库，跟后续
+      # pre-filter/enrich/score/cluster 几步在不完整数据上并发，属于数据竞态。
+      # 2026-07-14 实测：40 个信源只抓完约27个就撞了这个 10 分钟内部超时。
+      # 需要先把 fetch-sources.ts 里逐篇同步调用 LLM 的循环改成并发/批量，
+      # 或者修 runStep() 的进程树 kill 逻辑，才能安全重开。
       - name: Run full pipeline
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -29,5 +37,4 @@ jobs:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_API_URL: ${{ secrets.LLM_API_URL }}
           LLM_MODEL: ${{ secrets.LLM_MODEL }}
-          RELEVANCE_LLM_ENABLED: 'true'
         run: npx tsx src/scripts/run-pipeline.ts
