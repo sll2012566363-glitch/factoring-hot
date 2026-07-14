@@ -142,13 +142,16 @@ export function extractContentHtml($: cheerio.CheerioAPI, baseUrl: string): Extr
     }
   }
 
-  // 封面图：og:image 优先
+  // 封面图：og:image 优先（过滤太小的图标）
   const ogImage = $('meta[property="og:image"]').attr('content') ||
                   $('meta[name="og:image"]').attr('content') ||
                   $('meta[property="twitter:image"]').attr('content');
   let coverImage: string | null = null;
   if (ogImage) {
-    try { coverImage = new URL(ogImage, baseUrl).href; } catch { /* skip */ }
+    try {
+      const candidate = new URL(ogImage, baseUrl).href;
+      coverImage = looksLikeRealImage(candidate) ? candidate : null;
+    } catch { /* skip */ }
   }
 
   // 降级：不整体兜 body（会吞导航/页脚），改为拼接正文段落
@@ -181,6 +184,20 @@ export function extractContentHtml($: cheerio.CheerioAPI, baseUrl: string): Extr
   return qualityGate(rewriteImages($, $content, baseUrl, coverImage));
 }
 
+/**
+ * 判断一张图是否像"真正的封面/配图"（而非 favicon / 图标 / emoji / 装饰线）。
+ * 规则：宽或高任一 < 60px → 不是正经封面图。
+ */
+function looksLikeRealImage(src: string): boolean {
+  // URL 里带尺寸参数的（如 ?w=16 或 _16x16）直接判定太小
+  if (/(?:^|[/=_])(\d{1,3})[x_×](\d{1,3})(?:[/.?]|$)/.test(src)) {
+    const w = parseInt(RegExp.$1, 10);
+    const h = parseInt(RegExp.$2, 10);
+    if ((w > 0 && w < 60) || (h > 0 && h < 60)) return false;
+  }
+  return true;
+}
+
 /** 图片改写为 /api/img-proxy 代理 + 清理懒加载属性；顺带补封面 */
 function rewriteImages(
   $: cheerio.CheerioAPI,
@@ -203,7 +220,7 @@ function rewriteImages(
     $img.removeAttr('data-lazyload');
     $img.removeAttr('width');
     $img.removeAttr('height');
-    if (!coverImage) coverImage = absoluteUrl;
+    if (!coverImage && looksLikeRealImage(absoluteUrl)) coverImage = absoluteUrl;
   });
 
   const html = ($content.html() || '')
