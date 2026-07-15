@@ -42,6 +42,16 @@ function isSiteNoise(title: string): boolean {
   return NAV_NOISE_RE.test(t) || SITE_FURNITURE_RE.test(t) || ORG_INTERNAL_RE.test(t);
 }
 
+// ---- 课程 / 培训广告 / 招商引流黑名单 ----
+// 这些标题特征几乎只出现在"实操课/研修班/总裁班/招商会/白皮书领取"等
+// 商业推广页，正文常为空壳或留资表单，与行业资讯无关，无论关键词怎么
+// 命中一律拦截（优先级高于白名单信源豁免）
+const AD_BLACKLIST_RE = /(实操|培训|研修|总裁|私董|内训|特训)\s*(课|班)|招生|报名\s*(截止|进行中|中)?|课纲|学费|讲师\s*(阵容|介绍)?|大咖\s*(分享|授课|来了)?|席位|私享|闭门会|招商会|白皮书\s*领取|资料包\s*领取|扫码\s*领取|免费\s*领取?|加微信|进群|留资|立即咨询|预约\s*(咨询|报名)/;
+
+function isTrainingAd(title: string): boolean {
+  return AD_BLACKLIST_RE.test(title.trim());
+}
+
 // ---- 保理/供应链金融专业信源白名单 ----
 // 精选的垂直信源，全部内容默认视为主题相关，跳过关键词打分——
 // 因为这类信源的列表页标题常被站点自身截断（省略号），关键词可能被切没，
@@ -52,7 +62,8 @@ export const FACTORING_SOURCE_WHITELIST = new Set([
   'syblxh-sz',  // 深圳市商业保理协会
   'sinotf',     // 中国供应链金融网
   'tfsino',     // 供应链金融研究院
-  'wanlian',    // 万联网
+  // 'wanlian' 已移出：该源"行业资讯 + 商业课程"混合，课程/方案推广页
+  // 正文空壳却被关键词放行，已于 2026-07-15 关停（sources.json active=false）
 ]);
 
 function stripHtml(html: string): string {
@@ -88,7 +99,22 @@ async function llmJudge(
   const model = process.env.LLM_MODEL || 'deepseek-chat';
   if (!apiKey) throw new Error('缺少 LLM_API_KEY / DEEPSEEK_API_KEY');
 
-  const prompt = `你是保理与供应链金融领域的内容审核员。判断下面这篇文章是否真正与"保理、应收账款、供应链金融、商业保理、银行保理、融资租赁、债权转让、供应链ABS、动产融资统一登记"相关。\n只返回 JSON，格式：{"relevant": true 或 false, "reason": "不超过20字理由"}\n\n标题：${title}\n正文摘要：${snippet}`;
+  const prompt = `你是保理与供应链金融领域的内容审核专家。判断文章是否"真正属于"保理/供应链金融行业的实质资讯。
+
+【判为相关】满足之一：
+- 主体是保理业务、应收账款融资/转让、供应链金融、商业保理、银行保理、融资租赁、债权转让、供应链ABS、动产融资统一登记(中登)、反向保理、保兑仓等
+- 监管机构(央行/金监总局/证监会)发布且涉及上述领域的政策/处罚/监管动态
+- 真实行业事件、案例、数据、企业动态(如某保理公司增资/被罚/业务进展)
+
+【判为不相关】满足之一：
+- 培训课/研修班/总裁班/招商会/峰会报名等课程或活动招生广告
+- 白皮书/资料包/扫码领取/加微信/进群等引流留资(lead-gen)
+- 正文无实质内容：空壳、纯导航、纯机构介绍、党建/组织内部活动
+- 仅蹭"供应链""保理"等词但实际讲个股/IPO/宏观/其他行业
+
+只返回JSON：{"relevant": true 或 false, "reason": "不超过20字"}
+标题：${title}
+正文摘要：${snippet}`;
 
   const resp = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
@@ -124,6 +150,11 @@ export async function isRelevant(
 ): Promise<RelevanceResult> {
   if (isSiteNoise(title)) {
     return { relevant: false, method: 'skipped', score: 0, reason: 'site_noise' };
+  }
+
+  // 课程 / 培训广告 / 招商引流：明确拦截，不浪费 LLM 调用
+  if (isTrainingAd(title)) {
+    return { relevant: false, method: 'skipped', score: 0, reason: 'training_ad' };
   }
 
   if (opts?.sourceId && FACTORING_SOURCE_WHITELIST.has(opts.sourceId)) {

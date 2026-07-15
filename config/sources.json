@@ -418,7 +418,8 @@
       "weight": 1.0,
       "rss": null,
       "selector": ".news-list li a",
-      "active": true
+      "active": false,
+      "note": "2026-07-15 关停：行业资讯+商业课程混合站，课程/方案推广页正文空壳却易过相关性闸门，对本站定位价值低"
     },
     {
       "id": "cnfin",

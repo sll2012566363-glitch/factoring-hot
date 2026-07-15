@@ -58,11 +58,21 @@ interface Article {
   source_id: string;
 }
 
+// ─── 课程 / 培训广告 / 招商引流黑名单：命中即淘汰，不浪费 LLM ─────────
+const AD_BLACKLIST_RE = /(实操|培训|研修|总裁|私董|内训|特训)\s*(课|班)|招生|报名\s*(截止|进行中|中)?|课纲|学费|讲师\s*(阵容|介绍)?|大咖\s*(分享|授课|来了)?|席位|私享|闭门会|招商会|白皮书\s*领取|资料包\s*领取|扫码\s*领取|免费\s*领取?|加微信|进群|留资|立即咨询|预约\s*(咨询|报名)/;
+
+function isTrainingAd(title: string): boolean {
+  return AD_BLACKLIST_RE.test(title.trim());
+}
+
 /**
  * 关键词快速过滤
  * @returns true=通过, false=淘汰, null=不确定需LLM
  */
 function keywordFilter(title: string, text: string): boolean | null {
+  // 课程 / 培训广告 / 招商引流：明确淘汰
+  if (isTrainingAd(title)) return false;
+
   const combined = `${title} ${text}`;
 
   // 高置信度命中 → 直接通过
@@ -110,11 +120,18 @@ async function batchFilterWithLLM(articles: Article[]): Promise<Map<string, bool
       `${idx + 1}. [${a.source_id}] ${a.title}`
     ).join('\n');
 
-    const prompt = `判断以下文章标题是否与"保理"或"供应链金融"行业相关。
+    const prompt = `你是保理与供应链金融领域的内容审核专家。判断以下文章标题是否"真正属于"保理/供应链金融行业的实质资讯。
 
-相关范围包括：保理业务、应收账款融资、供应链金融、资产证券化(ABS)、供应链平台、核心企业融资、票据融资、供应链风控、金融监管(涉及保理/供应链金融的)、供应链金融纠纷案例。
+【判为相关】满足之一：
+- 保理业务、应收账款融资/转让、供应链金融、商业保理、银行保理、融资租赁、债权转让、供应链ABS、动产融资统一登记(中登)、反向保理、保兑仓
+- 监管动态(央行/金监总局/证监会发布且涉及上述领域)
+- 真实行业事件、案例、数据、企业动态
 
-不相关：与金融/供应链完全无关的娱乐、体育、生活类内容。
+【判为不相关】满足之一：
+- 培训课/研修班/总裁班/招商会/峰会报名等课程或活动招生广告
+- 白皮书/资料包/扫码领取/加微信/进群等引流留资(lead-gen)
+- 正文无实质内容：空壳、纯导航、纯机构介绍、党建/组织内部活动
+- 仅蹭"供应链""保理"等词但实际讲个股/IPO/宏观/其他行业
 
 文章列表：
 ${articleList}
@@ -140,8 +157,8 @@ ${articleList}
       });
 
       if (!response.ok) {
-        console.log(`  LLM API error ${response.status}, keeping all articles in batch`);
-        for (const a of batch) results.set(a.id, true);
+        console.log(`  LLM API error ${response.status}, 保守处理本批：仅高置信关键词命中保留`);
+        fallbackOnLLMFailure(batch, results);
         continue;
       }
 
@@ -167,8 +184,8 @@ ${articleList}
       }
     } catch (error) {
       const msg = (error as Error).message;
-      console.log(`  LLM batch error: ${msg.substring(0, 60)}, keeping all`);
-      for (const a of batch) results.set(a.id, true);
+      console.log(`  LLM batch error: ${msg.substring(0, 60)}, 保守处理本批：仅高置信关键词命中保留`);
+      fallbackOnLLMFailure(batch, results);
     }
 
     // 批次间 300ms
@@ -178,6 +195,19 @@ ${articleList}
   }
 
   return results;
+}
+
+/**
+ * LLM 不可用时的保守兜底：不盲目保留，只让命中高置信关键词的文章过关，
+ * 其余（不确定但有蹭词嫌疑的）一律淘汰，等下次 LLM 可用时再判。
+ */
+function fallbackOnLLMFailure(batch: Article[], results: Map<string, boolean>) {
+  for (const a of batch) {
+    if (!results.has(a.id)) {
+      const t = keywordFilter(a.title, `${a.content || ''} ${a.excerpt || ''}`);
+      results.set(a.id, t === true);
+    }
+  }
 }
 
 export async function runPreFilter() {
