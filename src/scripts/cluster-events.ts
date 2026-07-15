@@ -90,6 +90,7 @@ export async function runClustering() {
     .from('articles')
     .select('id, title, source_id, source_name, score, excerpt, link, category, pub_date')
     .not('score', 'is', null)
+    .or('pre_filtered.is.null,pre_filtered.eq.true')
     .gte('pub_date', cutoffDate.toISOString())
     .order('score', { ascending: false });
 

@@ -120,6 +120,36 @@ function stripLeadingNoise($: cheerio.CheerioAPI, $root: any): void {
   });
 }
 
+/**
+ * XSS 清洗：清除 on* 事件属性、javascript:/vbscript:/data: 协议链接，
+ * 删除 embed/object/svg/math/applet/portal 等可执行/外链危险标签。
+ * 在正文 HTML 经 dangerouslySetInnerHTML 渲染前必须调用。
+ */
+function sanitizeHtml($: cheerio.CheerioAPI, $root: any): void {
+  // 补删可执行/外链危险标签（REMOVE_SELECTORS 已删 script/style/iframe）
+  $root.find('embed, object, svg, math, applet, portal, base, meta, link').remove();
+
+  // 遍历所有元素，清除危险属性
+  $root.find('*').each((_i: number, el: any) => {
+    const attribs = el.attribs || {};
+    for (const key of Object.keys(attribs)) {
+      const val = String(attribs[key] || '');
+      // 1) on* 事件属性（onclick/onerror/onload...）一律删
+      if (/^on/i.test(key)) {
+        $(el).removeAttr(key);
+        continue;
+      }
+      // 2) URL 类属性拦截 javascript:/vbscript:/data: 协议
+      if (
+        /^(href|src|action|formaction|xlink:href|background|dynsrc|lowsrc|ping|poster|cite|data|usemap|longdesc)$/i.test(key)
+        && /^\s*(javascript|vbscript|data):/i.test(val)
+      ) {
+        $(el).removeAttr(key);
+      }
+    }
+  });
+}
+
 export interface ExtractedContent {
   html: string;
   coverImage: string | null;
@@ -170,6 +200,7 @@ export function extractContentHtml($: cheerio.CheerioAPI, baseUrl: string): Extr
       const $fb = $wrapped('#__fallback');
       pruneBoilerplate($wrapped, $fb);
       stripLeadingNoise($wrapped, $fb);
+      sanitizeHtml($wrapped, $fb);
       return qualityGate(rewriteImages($wrapped, $fb, baseUrl, coverImage));
     }
     return { html: '', coverImage };
@@ -180,6 +211,8 @@ export function extractContentHtml($: cheerio.CheerioAPI, baseUrl: string): Extr
   pruneBoilerplate($, $content);
   // 剥离顶部导航栏噪音（登录/注册/购物车/激活卡等混入正文容器的元素）
   stripLeadingNoise($, $content);
+  // XSS 清洗：清 on* 属性、javascript: 协议、危险标签
+  sanitizeHtml($, $content);
 
   return qualityGate(rewriteImages($, $content, baseUrl, coverImage));
 }

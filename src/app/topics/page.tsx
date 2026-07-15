@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import Header from '@/components/Header';
+import { formatDateDaySafe } from '@/lib/date-utils';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -87,10 +88,8 @@ export default async function TopicsPage() {
     );
   }
 
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
-  };
+  // 北京时间展示（固定 Asia/Shanghai，避免 Vercel UTC 服务器导致日期错位）
+  const formatDate = (dateStr: string) => formatDateDaySafe(dateStr);
 
   const scoreColor = (score: number) => {
     if (score >= 80) return 'bg-red-50 text-red-600';

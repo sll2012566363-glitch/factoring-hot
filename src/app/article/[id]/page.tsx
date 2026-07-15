@@ -5,7 +5,7 @@ import { cache } from 'react';
 import type { Metadata } from 'next';
 import * as cheerio from 'cheerio';
 import { extractContentHtml, extractPlainText } from '@/lib/extract-content';
-import { formatRelativeTime } from '@/lib/date-utils';
+import { formatRelativeTime, formatDateSafe } from '@/lib/date-utils';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -156,13 +156,8 @@ export default async function ArticleDetailPage({ params }: PageProps) {
   const pubDate = new Date(article.pub_date);
   const sectionName = SECTION_NAMES[article.category] || '监管新闻';
 
-  const formatDate = (d: Date) => {
-    const y = d.getFullYear();
-    const m = d.getMonth() + 1;
-    const day = d.getDate();
-    const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-    return `${y}年${m}月${day}日 ${time}`;
-  };
+  // 北京时间展示（固定 Asia/Shanghai，避免 Vercel UTC 服务器导致慢 8 小时）
+  const formatDate = (d: Date) => formatDateSafe(d);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">

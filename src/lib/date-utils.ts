@@ -103,3 +103,17 @@ export function nowToMinute(): Date {
   d.setSeconds(0, 0);
   return d;
 }
+
+/**
+ * 只到日的北京时间展示（用于聚类日期等不需要时分的场景）。
+ * null / 非法 → "日期不详"。
+ */
+export function formatDateDaySafe(input: unknown): string {
+  if (input === null || input === undefined || input === '') return '日期不详';
+  const d = input instanceof Date ? input : new Date(input as string);
+  if (isNaN(d.getTime())) return '日期不详';
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric', month: 'long', day: 'numeric',
+  }).format(d);
+}

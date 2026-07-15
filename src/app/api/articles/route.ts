@@ -6,10 +6,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-/** Simple API key auth for write operations */
+/** 写操作鉴权：必须配置 API_KEY 且请求携带正确 key（默认 closed） */
 function checkAuth(request: NextRequest): boolean {
   const apiKey = process.env.API_KEY;
-  if (!apiKey) return true; // No auth configured = allow all (dev mode)
+  if (!apiKey) return false; // 未配置 key 一律拒绝写操作
   const headerKey = request.headers.get('authorization')?.replace('Bearer ', '');
   const queryKey = request.nextUrl.searchParams.get('api_key');
   return headerKey === apiKey || queryKey === apiKey;

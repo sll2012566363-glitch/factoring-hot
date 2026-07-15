@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
     .gte('pub_date', `${startDate.toISOString().split('T')[0]}T00:00:00+08:00`)
     .lt('pub_date', `${endDate.toISOString().split('T')[0]}T00:00:00+08:00`)
     .not('score', 'is', null)
+    .or('pre_filtered.is.null,pre_filtered.eq.true')
     .order('score', { ascending: false });
 
   if (error || !articles) {

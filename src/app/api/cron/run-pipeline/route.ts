@@ -4,13 +4,14 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes for Vercel Pro
 
 export async function GET(request: NextRequest) {
-  // Security: verify cron secret if set
+  // 鉴权：必须配置 CRON_SECRET 且请求携带正确 Bearer token（默认 closed）
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  if (!cronSecret) {
+    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 503 });
+  }
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const results: Record<string, any> = {};
@@ -35,11 +36,12 @@ export async function GET(request: NextRequest) {
 
     // Step 3: LLM scoring
     try {
-      if (process.env.DEEPSEEK_API_KEY) {
+      // llm-score.ts 用 LLM_API_KEY（兼容 DEEPSEEK_API_KEY 兜底）
+      if (process.env.LLM_API_KEY || process.env.DEEPSEEK_API_KEY) {
         const { runScore } = await import('@/scripts/llm-score');
         results.score = await runScore();
       } else {
-        results.score = { skipped: true, reason: 'DEEPSEEK_API_KEY not set' };
+        results.score = { skipped: true, reason: 'LLM_API_KEY not set' };
       }
     } catch (err) {
       results.score = { error: (err as Error).message };
