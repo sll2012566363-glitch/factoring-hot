@@ -302,6 +302,9 @@ function genericExtract($: cheerio.CheerioAPI, source: Source, baseUrl: string):
       try {
         const urlObj = new URL(link);
         const urlPath = urlObj.pathname;
+        // 栏目/频道首页（以 / 结尾且路径无日期，如 /GB/Treasury/CFO/）不是文章，
+        // 但会通过下面的 path-depth 判断混进来——先行拦截
+        if (urlPath.endsWith('/') && !/\d{4}/.test(urlPath)) return;
         const hasArticlePath = urlPath.split('/').length >= 3 ||
           /\d{4}[-/]?\d{2}[-/]?\d{2}/.test(urlPath) ||
           /article|news|content|detail|info/i.test(urlPath);

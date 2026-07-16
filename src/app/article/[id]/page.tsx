@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import type { Metadata } from 'next';
 import * as cheerio from 'cheerio';
-import { extractContentHtml, extractPlainText } from '@/lib/extract-content';
+import { extractContentHtml, extractPlainText, extractMetaDescription } from '@/lib/extract-content';
 import { formatRelativeTime, formatDateSafe } from '@/lib/date-utils';
 
 const supabase = createClient(
@@ -72,7 +72,12 @@ async function fetchFullContent(url: string): Promise<{ html: string; text: stri
     }
     const $ = cheerio.load(rawHtml);
     const { html, coverImage } = extractContentHtml($, url);
-    if (!html || html.length < 50) return null;
+    if (!html || html.length < 50) {
+      // 正文提取失败（JS 渲染站）：meta description 兜底当摘要
+      const metaDesc = extractMetaDescription($);
+      if (metaDesc) return { html: '', text: metaDesc, coverImage };
+      return null;
+    }
 
     const text = extractPlainText(html);
     return { html, text, coverImage };

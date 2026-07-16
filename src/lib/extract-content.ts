@@ -276,6 +276,20 @@ export function extractPlainText(html: string): string {
 }
 
 /**
+ * 页面官方摘要（meta description / og:description）。
+ * 正文提取失败的 JS 渲染站（sinotf/syblxh 等正文由脚本动态写入，静态抓取
+ * 拿不到）常在 meta 里带一句编辑摘要——用它兜底，详情页至少能显示摘要
+ * 而不是"暂无正文内容"空白。太短（<20字）或缺失返回 null。
+ */
+export function extractMetaDescription($: cheerio.CheerioAPI): string | null {
+  const desc = $('meta[name="description"]').attr('content')
+    || $('meta[property="og:description"]').attr('content')
+    || '';
+  const cleaned = desc.replace(/\s+/g, ' ').trim();
+  return cleaned.length >= 20 ? cleaned : null;
+}
+
+/**
  * 质量闸门：剪枝后纯文本过短（快讯页/名单页/JS渲染页），宁缺勿滥 —
  * 返回空让调用方走纯文本降级渲染，避免把导航页脚当正文存库。
  * 有真实内容图的短图文（如公众号海报文）放行。

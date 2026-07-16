@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { fetch as undiciFetch } from 'undici';
 import * as cheerio from 'cheerio';
-import { extractContentHtml, extractPlainText } from '../lib/extract-content';
+import { extractContentHtml, extractPlainText, extractMetaDescription } from '../lib/extract-content';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -104,6 +104,19 @@ async function enrichArticle(article: Article): Promise<{
     const { html: contentHtml, coverImage } = extractContentHtml($, article.link);
 
     if (!contentHtml || contentHtml.length < 50) {
+      // 正文提取失败（JS 渲染站等）：用页面 meta description 兜底当摘要，
+      // 详情页至少显示一句官方摘要而不是"暂无正文内容"
+      const metaDesc = extractMetaDescription($);
+      if (metaDesc) {
+        console.log(`  正文不可得，meta description 兜底 (${metaDesc.length} 字) for ${article.title.substring(0, 30)}`);
+        return {
+          content: metaDesc,
+          content_html: '',
+          excerpt: metaDesc,
+          pub_date: extractPubDate($),
+          cover_image: coverImage,
+        };
+      }
       console.log(`  Content too short for ${article.title.substring(0, 30)}`);
       return null;
     }
