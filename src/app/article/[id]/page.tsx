@@ -6,6 +6,7 @@ import type { Metadata } from 'next';
 import * as cheerio from 'cheerio';
 import { extractContentHtml, extractPlainText, extractMetaDescription } from '@/lib/extract-content';
 import { fetchSourceBody } from '@/lib/fetch-source-body';
+import { assessContentQuality } from '@/lib/content-quality';
 import { formatRelativeTime, formatDateSafe } from '@/lib/date-utils';
 import AppShell from '@/components/AppShell';
 
@@ -153,6 +154,8 @@ export default async function ArticleDetailPage({ params }: PageProps) {
       await supabase.from('articles').update(updatePayload).eq('id', article.id);
     }
   }
+  const contentQuality = assessContentQuality({ content, content_html: contentHtml });
+  const isFullContent = contentQuality.tier === 'full';
 
   // ── 摘要：三层优先级 ──
   let excerpt = '';
@@ -232,15 +235,15 @@ export default async function ArticleDetailPage({ params }: PageProps) {
         )}
 
         {/* Content — 优先渲染HTML，降级为纯文本 */}
-        {(contentHtml || (content && content.length > 20)) && <div className="flex items-center gap-3 mb-4 mt-8"><span className="text-xs text-[var(--muted)] tracking-widest">内容原文</span><div className="flex-1 border-t border-[var(--line)]" /></div>}
-        {contentHtml ? (
+        {isFullContent && <div className="flex items-center gap-3 mb-4 mt-8"><span className="text-xs text-[var(--muted)] tracking-widest">内容原文 · 已收录全文</span><div className="flex-1 border-t border-[var(--line)]" /></div>}
+        {isFullContent && contentHtml ? (
           <div className="article-content">
             <article
               className="article-body"
               dangerouslySetInnerHTML={{ __html: contentHtml }}
             />
           </div>
-        ) : content && content.length > 20 ? (
+        ) : isFullContent && content && content.length > 20 ? (
           <div className="article-content">
             <div className="text-gray-700 dark:text-gray-300 dark:text-gray-600 leading-7 text-[15px] space-y-4">
               {content.split(/(?<=[。！？\n])\s*/).filter((p: string) => p.trim().length > 5).map((para: string, i: number) => (
@@ -250,7 +253,8 @@ export default async function ArticleDetailPage({ params }: PageProps) {
           </div>
         ) : (
           <div className="article-content text-center text-[var(--muted)] text-sm">
-            此信源暂未收录可公开解析的完整正文；可查看摘要及原始链接。
+            <p>此条内容未达到站内全文标准，因此不展示为文章正文。</p>
+            <p className="mt-2">{contentQuality.reason}；请查看原始链接获取完整内容。</p>
           </div>
         )}
 
@@ -260,6 +264,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
             <div className="text-xs text-gray-400">来源：{article.source_name}</div>
             <div className="flex items-center gap-3">
               <Link href="/" className="soft-button">返回精选</Link>
+              <a href={`https://github.com/sll2012566363-glitch/factoring-hot/issues/new?title=${encodeURIComponent(`正文质量反馈：${article.title}`)}`} target="_blank" rel="noopener noreferrer" className="soft-button">反馈正文问题</a>
               <a href={article.link} target="_blank" rel="noopener noreferrer"
                 className="primary-button">
                 查看原文

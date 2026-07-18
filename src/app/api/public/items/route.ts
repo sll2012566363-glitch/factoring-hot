@@ -7,6 +7,7 @@ import {
   checkRateLimit,
   jsonResponse,
 } from '@/lib/public-api-utils';
+import { assessContentQuality } from '@/lib/content-quality';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://factoring-hot.vercel.app';
 const MAX_TAKE = 100;
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
   // Build query
   let query = adminClient
     .from('articles')
-    .select('id, title, link, excerpt, source_name, source_id, category, priority, score, score_dimensions, scoring_method, is_selected, event_id, event_title, pub_date, created_at', { count: 'exact' })
+    .select('id, title, link, excerpt, content, content_html, source_name, source_id, category, priority, score, score_dimensions, scoring_method, is_selected, event_id, event_title, pub_date, created_at', { count: 'exact' })
     // pre-filter.ts 判不相关的文章排除展示
     .or('pre_filtered.is.null,pre_filtered.eq.true')
     .order('created_at', { ascending: false })
@@ -134,7 +135,9 @@ export async function GET(request: NextRequest) {
   }
 
   // Transform to public item format (matching AI Hot's shape)
-  const publicItems = page.map(a => ({
+  const publicItems = page.map(a => {
+    const quality = assessContentQuality(a);
+    return ({
     id: a.id,
     title: a.title,
     url: a.link,
@@ -152,7 +155,10 @@ export async function GET(request: NextRequest) {
     selected: a.is_selected ?? false,
     eventId: a.event_id || null,
     eventTitle: a.event_title || null,
-  }));
+    contentTier: quality.tier,
+    detailAvailable: quality.tier === 'full',
+  });
+  });
 
   const responseBody = {
     items: publicItems,

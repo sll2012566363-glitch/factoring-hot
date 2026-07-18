@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import AppShell from '@/components/AppShell';
 import { formatDateDaySafe } from '@/lib/date-utils';
+import { hasFullContent } from '@/lib/content-quality';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,6 +40,8 @@ interface RelatedArticle {
   title: string;
   source_name: string;
   score: number | null;
+  content: string | null;
+  content_html: string | null;
 }
 
 interface PrimaryArticle {
@@ -84,11 +87,11 @@ export default async function TopicsPage() {
         if (cluster.related_article_ids && cluster.related_article_ids.length > 0) {
           const { data: rows } = await supabase
             .from('articles')
-            .select('id, title, source_name, score')
+            .select('id, title, source_name, score, content, content_html')
             .in('id', cluster.related_article_ids.slice(0, 10));
 
           if (rows) {
-            relatedArticles = (rows as RelatedArticle[]).sort(
+            relatedArticles = (rows as RelatedArticle[]).filter(hasFullContent).sort(
               (a, b) => (b.score || 0) - (a.score || 0)
             );
           }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireInternalApiKey } from '@/lib/api-auth';
 import { checkRateLimit } from '@/lib/public-api-utils';
+import { partitionByContentQuality } from '@/lib/content-quality';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from('articles')
     .select(
-      'id, title, link, excerpt, content, source_name, category, score, pub_date, ai_reason, scoring_method, score_dimensions, cover_image, created_at',
+      'id, title, link, excerpt, content, content_html, source_name, category, score, pub_date, ai_reason, scoring_method, score_dimensions, cover_image, created_at',
       { count: 'exact' }
     )
     // pre-filter.ts（hourly pipeline 2/5步）判不相关的文章排除展示——
@@ -34,7 +35,9 @@ export async function GET(request: NextRequest) {
     // 全部动态是实时资料库，发布时间应优先于评分。
     .order('pub_date', { ascending: false })
     .order('score', { ascending: false })
-    .range(offset, offset + limit - 1);
+    // Filter after retrieval so an excluded source-only item never consumes a
+    // page slot and falsely ends infinite scrolling early.
+    .limit(500);
   
   if (date) {
     query = query.gte('pub_date', date).lte('pub_date', date + 'T23:59:59');
@@ -50,14 +53,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const slim = (articles || []).map((a) => ({
+  // The internal-detail feed never promises an article unless its stored body
+  // meets the same full-text contract as the home page.
+  const fullArticles = partitionByContentQuality(articles || []).full;
+  const page = fullArticles.slice(offset, offset + limit);
+  const slim = page.map((a) => ({
     ...a,
     content: a.content ? a.content.substring(0, 300) : a.content,
+    content_html: undefined,
   }));
 
   return NextResponse.json({
     articles: slim,
-    total: count || 0,
+    total: fullArticles.length,
     date: date || 'all',
   });
 }

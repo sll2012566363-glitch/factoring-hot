@@ -13,7 +13,10 @@
     "report": "node --env-file-if-exists=.env.local ./node_modules/tsx/dist/cli.mjs src/scripts/generate-reports.ts daily",
     "init": "node --env-file-if-exists=.env.local ./node_modules/tsx/dist/cli.mjs src/scripts/init-sources.ts",
     "report:weekly": "node --env-file-if-exists=.env.local ./node_modules/tsx/dist/cli.mjs src/scripts/generate-reports.ts weekly",
-    "report:monthly": "node --env-file-if-exists=.env.local ./node_modules/tsx/dist/cli.mjs src/scripts/generate-reports.ts monthly"
+    "report:monthly": "node --env-file-if-exists=.env.local ./node_modules/tsx/dist/cli.mjs src/scripts/generate-reports.ts monthly",
+    "quality:audit": "node --env-file-if-exists=.env.local ./node_modules/tsx/dist/cli.mjs src/scripts/audit-content-quality.ts",
+    "quality:backfill": "node --env-file-if-exists=.env.local ./node_modules/tsx/dist/cli.mjs src/scripts/backfill-content-quality.ts",
+    "score:recalibrate": "node --env-file-if-exists=.env.local ./node_modules/tsx/dist/cli.mjs src/scripts/rescore-full-articles.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

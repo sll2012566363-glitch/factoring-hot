@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { assessContentQuality } from '@/lib/content-quality';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,5 +24,5 @@ export async function GET(
     return NextResponse.json({ error: 'Article not found' }, { status: 404 });
   }
   
-  return NextResponse.json(article);
+  return NextResponse.json({ ...article, contentQuality: assessContentQuality(article) });
 }

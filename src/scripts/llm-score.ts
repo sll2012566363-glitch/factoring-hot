@@ -1,5 +1,6 @@
 export {};
 import { createClient } from '@supabase/supabase-js';
+import { hasFullContent } from '@/lib/content-quality';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,6 +16,7 @@ interface Article {
   title: string;
   content: string;
   excerpt?: string | null;
+  content_html?: string | null;
   score: number | null;
 }
 
@@ -81,19 +83,21 @@ function readDimensions(payload: Record<string, unknown>, score: number): ScoreR
 
 async function scoreWithDeepSeek(article: Article): Promise<ScoreResult | null> {
   const contentSnippet = (article.content || article.excerpt || '').substring(0, 1000);
-  const prompt = `请对以下保理/供应链金融文章评分(0-100)、生成一句话中文摘要(不超过80字)，并给出一句话选稿理由(中文，不超过80字)说明该文章为何值得入选。
+  const prompt = `你是保理与供应链金融行业主编。请严格评估以下已收录全文，而不是给出默认中高分。
 
-评分维度(各0-20分):
-- 前沿解读: 是否有深度分析、专业解读
-- 行业前沿模式: 是否涉及业务创新、新模式
-- 前沿监管新闻: 是否涉及政策法规变化
-- 前沿争议解决: 是否涉及纠纷案例、风险
-- 前沿规范文件: 是否为重要规范文件
+五维评分各0-20分，score 必须严格等于五维之和：
+- frontier：独立分析、专业解释或重要数据
+- industry_model：保理/供应链金融业务模式、交易或科技实践
+- regulatory：直接涉及保理、应收账款融资、ABS、票据等的监管变化
+- dispute：保理/融资租赁等具体争议、案例或风控教训
+- normative：可执行的规范文件、政策或司法规则
+
+校准：90+仅限全国性重大规则或多源重大事件；75-89为明确且重要行业信号；55-74为有价值的一般专业内容；低于55为关联弱、重复或信息增量不足。不得因出现“金融”“供应链”等泛词给高分。
 
 标题：${article.title}
 内容：${contentSnippet || '无内容'}
 
-返回JSON: {"score": 85, "dimensions": {"frontier": 18, "industry_model": 15, "regulatory": 16, "dispute": 12, "normative": 14}, "excerpt": "一句话摘要", "reason": "一句话选稿理由"}`;
+返回JSON: {"score": 0, "dimensions": {"frontier": 0, "industry_model": 0, "regulatory": 0, "dispute": 0, "normative": 0}, "excerpt": "基于原文事实的一句话摘要", "reason": "引用原文具体事实的选稿理由"}`;
 
   try {
     const response = await fetch(`${LLM_API_URL}/chat/completions`, {
@@ -140,9 +144,13 @@ async function scoreWithDeepSeek(article: Article): Promise<ScoreResult | null> 
       return null;
     }
 
+    const dimensions = readDimensions(result, score);
+    // The dimensions are the auditable score contract. Never preserve a
+    // model-provided total that disagrees with its own five explanations.
+    const total = Object.values(dimensions).reduce((sum, value) => sum + value, 0);
     return {
-      score,
-      dimensions: readDimensions(result, score),
+      score: total,
+      dimensions,
       excerpt: readText(result, ['excerpt', '摘要']),
       reason: readText(result, ['reason', '选稿理由', '推荐理由']),
     };
@@ -154,7 +162,7 @@ async function scoreWithDeepSeek(article: Article): Promise<ScoreResult | null> 
 }
 
 export async function runScore() {
-  console.log('🤖 Starting LLM scoring with DeepSeek...\n');
+  console.log(`🤖 Starting LLM scoring with ${MODEL}...\n`);
 
   if (!LLM_API_KEY) {
     console.error('ERROR: LLM_API_KEY is not set. Export it before running.');
@@ -165,7 +173,7 @@ export async function runScore() {
   // body after an earlier failed attempt, so `score IS NULL` is authoritative.
   const { data: articles, error } = await supabase
     .from('articles')
-    .select('id, title, content, excerpt, score')
+    .select('id, title, content, content_html, excerpt, score')
     .is('score', null)
     .or('pre_filtered.is.null,pre_filtered.eq.true')
     .or('status.is.null,status.neq.rejected')
@@ -176,7 +184,15 @@ export async function runScore() {
     throw error;
   }
 
-  console.log(`Found ${articles.length} articles to score\n`);
+  const sourceOnly = articles.filter(article => !hasFullContent(article));
+  if (sourceOnly.length > 0) {
+    await Promise.all(sourceOnly.map(article => supabase.from('articles').update({
+      status: 'rejected',
+      ai_reason: '正文未达到站内全文标准，仅作为原文线索展示。',
+    }).eq('id', article.id)));
+  }
+  const scoreable = articles.filter(hasFullContent) as Article[];
+  console.log(`Found ${scoreable.length} full-text articles to score; ${sourceOnly.length} source-only items skipped\n`);
 
   let scored = 0;
   let failed = 0;
@@ -184,33 +200,8 @@ export async function runScore() {
   const concurrency = Math.min(Math.max(Number(process.env.SCORE_CONCURRENCY) || 4, 1), 8);
 
   const processArticle = async (article: Article, index: number) => {
-    const progress = `[${index + 1}/${articles.length}]`;
+    const progress = `[${index + 1}/${scoreable.length}]`;
     console.log(`${progress} ${article.title.substring(0, 50)}...`);
-
-    // Several authoritative sources only expose a list-page summary. Score that
-    // summary instead of discarding a current, relevant signal solely because
-    // the original page blocks body extraction.
-    if ((!article.content || article.content.length < 10) && (!article.excerpt || article.excerpt.length < 10)) {
-      const { error: skipError } = await supabase
-        .from('articles')
-        // Keep score null, but give contentless items a true terminal status.
-        // Enrichment reopens it if a later source adapter recovers the body.
-        .update({
-          scoring_method: 'llm',
-          scored_at: new Date().toISOString(),
-          status: 'rejected',
-          ai_reason: '原始信源未提供可用于评估的摘要或正文，暂不进入精选。',
-        })
-        .eq('id', article.id);
-      if (skipError) {
-        console.log(`  ✗ Skip marker failed: ${skipError.message}\n`);
-        failed++;
-      } else {
-        console.log(`  ⊘ Skipped permanently (no content)\n`);
-        skipped++;
-      }
-      return;
-    }
 
     const result = await scoreWithDeepSeek(article);
 
@@ -257,10 +248,10 @@ export async function runScore() {
   };
 
   let nextIndex = 0;
-  await Promise.all(Array.from({ length: Math.min(concurrency, articles.length) }, async () => {
-    while (nextIndex < articles.length) {
+  await Promise.all(Array.from({ length: Math.min(concurrency, scoreable.length) }, async () => {
+    while (nextIndex < scoreable.length) {
       const index = nextIndex++;
-      await processArticle(articles[index] as Article, index);
+      await processArticle(scoreable[index], index);
     }
   }));
 
@@ -268,18 +259,24 @@ export async function runScore() {
   console.log(`   Scored:  ${scored}`);
   console.log(`   Failed:  ${failed}`);
   console.log(`   Skipped: ${skipped}`);
-  console.log(`   Total:   ${articles.length}`);
-  if (articles.length > 0 && scored === 0 && failed > 0) {
+  console.log(`   Total:   ${scoreable.length}`);
+  if (scoreable.length > 0 && scored === 0 && failed > 0) {
     throw new Error('All LLM scoring requests failed; refusing to mark the pipeline successful.');
   }
-  return { scored, failed, skipped, total: articles.length };
+  return { scored, failed, skipped: skipped + sourceOnly.length, total: scoreable.length };
 }
 
 const isMain = typeof process !== 'undefined' &&
   process.argv[1] && /llm-score/.test(process.argv[1]);
 if (isMain) {
-  runScore().catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-  });
+  // Keep the Node process alive until every concurrent API request and
+  // database update has settled. A bare promise chain can otherwise let the
+  // CLI exit early while requests are still queued.
+  const keepAlive = setInterval(() => undefined, 1000);
+  runScore()
+    .catch((error) => {
+      console.error(error);
+      process.exitCode = 1;
+    })
+    .finally(() => clearInterval(keepAlive));
 }

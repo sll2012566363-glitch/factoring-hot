@@ -54,7 +54,7 @@ function groupByDate(articles: Article[]) {
   }));
 }
 
-export default function HomeClient({ initialArticles }: { initialArticles: Article[] }) {
+export default function HomeClient({ initialArticles, sourceBriefs }: { initialArticles: Article[]; sourceBriefs: Article[] }) {
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const focus = useMemo(() => {
@@ -87,7 +87,7 @@ export default function HomeClient({ initialArticles }: { initialArticles: Artic
       <header className="page-intro">
         <p className="page-eyebrow">精选 · 行业情报</p>
         <h1 className="page-title">今天，什么值得关注？</h1>
-        <p className="page-description">从监管、市场、交易与风险信号中筛选出真正影响保理与供应链金融的变化。</p>
+        <p className="page-description">只展示已收录完整正文的行业情报；未达到全文标准的内容会明确作为原文线索分流。</p>
       </header>
 
       {focus && <section className="hero-focus">
@@ -108,6 +108,10 @@ export default function HomeClient({ initialArticles }: { initialArticles: Artic
       <section aria-label="最新精选">
         {dateGroups.length ? dateGroups.map(group => <DateGroup key={group.label} dateLabel={group.label} articles={group.articles} categoryMap={SECTION_NAMES} />) : <div className="py-16 text-center text-sm text-[var(--muted)]">未找到匹配内容，试试调整筛选条件。</div>}
       </section>
+      {sourceBriefs.length > 0 && <section className="source-briefs" aria-label="原文线索">
+        <div className="source-briefs-head"><div><p className="page-eyebrow">Source signals</p><h2 className="section-title">原文线索</h2></div><p>未达到站内全文标准，避免跳转空壳详情。</p></div>
+        {sourceBriefs.map(article => <article className="source-brief" key={article.id}><div><span>{article.source_name}</span><h3><a href={article.link} target="_blank" rel="noopener noreferrer">{article.title}</a></h3><p>{article.excerpt || article.content || '请查看原始链接。'}</p></div><a href={article.link} target="_blank" rel="noopener noreferrer" aria-label={`查看 ${article.title} 原文`}><ArrowUpRight size={17} /></a></article>)}
+      </section>}
       <p className="mt-8 text-center text-xs text-[var(--muted)]">当前显示 {filteredArticles.length} 篇 · 资讯由多个公开信源采集，引用请以原文为准</p>
     </AppShell>
   );

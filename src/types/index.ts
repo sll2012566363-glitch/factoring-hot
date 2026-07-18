@@ -29,6 +29,8 @@ export interface Article {
   scored_at?: string;
   scoring_method?: 'rule' | 'llm';
   content_html?: string | null;
+  content_quality?: 'full' | 'summary' | 'external';
+  content_word_count?: number | null;
   cover_image?: string | null;
   event_id?: string;
   event_title?: string;

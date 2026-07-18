@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { hasFullContent } from '@/lib/content-quality';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -86,7 +87,7 @@ export async function generateDailyReport(dateStr?: string) {
   const startOfDay = `${date}T00:00:00+08:00`;
   const endOfDay = `${date}T23:59:59+08:00`;
 
-  const { data: articles, error } = await supabase
+  const { data: rows, error } = await supabase
     .from('articles')
     .select('*')
     .gte('pub_date', startOfDay)
@@ -95,12 +96,13 @@ export async function generateDailyReport(dateStr?: string) {
     .or('pre_filtered.is.null,pre_filtered.eq.true')
     .order('score', { ascending: false });
 
-  if (error || !articles) {
+  if (error || !rows) {
     console.error('Failed to fetch articles:', error);
     throw error || new Error('Failed to fetch daily report articles');
   }
 
-  console.log(`Found ${articles.length} scored articles for ${date}`);
+  const articles = rows.filter(hasFullContent);
+  console.log(`Found ${articles.length} full-text scored articles for ${date}`);
 
   // Build sections
   const sections = Object.values(SECTION_CONFIG).map(cfg => {
@@ -162,7 +164,7 @@ export async function generateWeeklyReport(year: number, week: number) {
   const endDate = new Date(startDate);
   endDate.setDate(endDate.getDate() + 7);
 
-  const { data: articles, error } = await supabase
+  const { data: rows, error } = await supabase
     .from('articles')
     .select('*')
     .gte('pub_date', `${startDate.toISOString().split('T')[0]}T00:00:00+08:00`)
@@ -171,12 +173,13 @@ export async function generateWeeklyReport(year: number, week: number) {
     .or('pre_filtered.is.null,pre_filtered.eq.true')
     .order('score', { ascending: false });
 
-  if (error || !articles) {
+  if (error || !rows) {
     console.error('Failed to fetch articles:', error);
     throw error || new Error('Failed to fetch weekly report articles');
   }
 
-  console.log(`Found ${articles.length} articles for this week`);
+  const articles = rows.filter(hasFullContent);
+  console.log(`Found ${articles.length} full-text articles for this week`);
 
   const byCategory = (cat: string) => articles.filter(a => a.category === cat);
 
@@ -254,7 +257,7 @@ async function generateMonthlyReport(year: number, month: number) {
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 1);
 
-  const { data: articles, error } = await supabase
+  const { data: rows, error } = await supabase
     .from('articles')
     .select('*')
     .gte('pub_date', `${startDate.toISOString().split('T')[0]}T00:00:00+08:00`)
@@ -263,12 +266,13 @@ async function generateMonthlyReport(year: number, month: number) {
     .or('pre_filtered.is.null,pre_filtered.eq.true')
     .order('score', { ascending: false });
 
-  if (error || !articles) {
+  if (error || !rows) {
     console.error('Failed to fetch articles:', error);
     return;
   }
 
-  console.log(`Found ${articles.length} scored articles for ${year}年${month}月`);
+  const articles = rows.filter(hasFullContent);
+  console.log(`Found ${articles.length} full-text scored articles for ${year}年${month}月`);
 
   if (articles.length === 0) {
     console.log('No articles for this month, skipping.');

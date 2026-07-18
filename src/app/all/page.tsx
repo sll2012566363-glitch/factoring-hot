@@ -106,7 +106,7 @@ export default function AllArticles() {
         <header className="page-intro">
           <p className="page-eyebrow">实时资料库</p>
           <h1 className="page-title">全部行业动态</h1>
-          <p className="page-description">查看已通过相关性筛选的保理与供应链金融资讯，按最新入库时间持续更新。</p>
+          <p className="page-description">仅展示已通过相关性筛选且收录完整正文的行业资讯；原文线索在首页单独标识。</p>
         </header>
 
         {/* Search */}

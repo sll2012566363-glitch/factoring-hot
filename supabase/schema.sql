@@ -49,6 +49,9 @@ CREATE TABLE IF NOT EXISTS articles (
   link TEXT NOT NULL UNIQUE,
   content TEXT,
   excerpt TEXT,
+  content_quality TEXT CHECK (content_quality IN ('full', 'summary', 'external')),
+  content_word_count INTEGER,
+  content_checked_at TIMESTAMPTZ,
   pub_date TIMESTAMPTZ NOT NULL,
   source_id TEXT NOT NULL REFERENCES sources(id),
   source_name TEXT NOT NULL,
@@ -85,6 +88,7 @@ CREATE INDEX idx_articles_source_id ON articles(source_id);
 CREATE INDEX idx_articles_event_id ON articles(event_id);
 CREATE INDEX idx_articles_status ON articles(status);
 CREATE INDEX idx_articles_selected ON articles(is_selected);
+CREATE INDEX idx_articles_content_quality ON articles(content_quality, pub_date DESC);
 
 COMMENT ON TABLE articles IS '文章表';
 COMMENT ON COLUMN articles.score IS '综合评分（0-100）';
