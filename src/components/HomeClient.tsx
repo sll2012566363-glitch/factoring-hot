@@ -30,17 +30,30 @@ const SECTION_NAMES: Record<string, string> = {
   normative: '前沿规范文件',
 };
 
-const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+const BEIJING_TIME_ZONE = 'Asia/Shanghai';
+
+function beijingDateParts(dateStr: string) {
+  const parts = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: BEIJING_TIME_ZONE,
+    year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'short',
+  }).formatToParts(new Date(dateStr));
+  const value = (type: string) => parts.find(part => part.type === type)?.value || '';
+  return { year: value('year'), month: value('month'), day: value('day'), weekday: value('weekday') };
+}
+
+function beijingDateKey(dateStr: string) {
+  const date = beijingDateParts(dateStr);
+  return `${date.year}-${date.month.padStart(2, '0')}-${date.day.padStart(2, '0')}`;
+}
 
 /** 生成日期标签，格式如：今天7月6日 周日 / 昨天7月5日 周六 / 7月4日 周四 */
 function formatDateLabel(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const diffDays = Math.floor((today.getTime() - target.getTime()) / 86400000);
-  const monthDay = `${date.getMonth() + 1}月${date.getDate()}日`;
-  const weekday = WEEKDAYS[date.getDay()];
+  const date = beijingDateParts(dateStr);
+  const todayKey = beijingDateKey(new Date().toISOString());
+  const targetKey = beijingDateKey(dateStr);
+  const diffDays = Math.round((Date.parse(`${todayKey}T00:00:00+08:00`) - Date.parse(`${targetKey}T00:00:00+08:00`)) / 86400000);
+  const monthDay = `${date.month}月${date.day}日`;
+  const weekday = date.weekday;
 
   if (diffDays === 0) return `今天 ${monthDay} ${weekday}`;
   if (diffDays === 1) return `昨天 ${monthDay} ${weekday}`;
@@ -52,7 +65,7 @@ function formatDateLabel(dateStr: string): string {
 function groupByDate(articles: Article[]): { label: string; articles: Article[] }[] {
   const groups = new Map<string, Article[]>();
   for (const article of articles) {
-    const dateKey = new Date(article.pub_date).toISOString().slice(0, 10);
+    const dateKey = beijingDateKey(article.pub_date);
     if (!groups.has(dateKey)) groups.set(dateKey, []);
     groups.get(dateKey)!.push(article);
   }
@@ -96,9 +109,9 @@ export default function HomeClient({ initialArticles }: { initialArticles: Artic
 
   // Today's top 3 by score, independent of active filters
   const todayTop3 = useMemo(() => {
-    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayKey = beijingDateKey(new Date().toISOString());
     return articles
-      .filter(a => new Date(a.pub_date).toISOString().slice(0, 10) === todayKey)
+      .filter(a => beijingDateKey(a.pub_date) === todayKey)
       .sort((a, b) => (b.score || 0) - (a.score || 0))
       .slice(0, 3);
   }, [articles]);

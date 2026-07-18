@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import dns from 'node:dns/promises';
+
+export const runtime = 'nodejs';
 
 /**
  * Image proxy API — fetches remote images server-side to bypass hotlink protection.
@@ -25,6 +28,37 @@ function isPrivateHost(hostname: string): boolean {
   if (a >= 224) return true;                          // 组播/保留
   return false;
 }
+
+async function assertPublicHost(hostname: string) {
+  if (isPrivateHost(hostname)) throw new Error('Forbidden host');
+  const records = await dns.lookup(hostname, { all: true, verbatim: true });
+  if (!records.length || records.some(record => isPrivateHost(record.address))) {
+    throw new Error('Forbidden host');
+  }
+}
+
+async function fetchPublicImage(initialUrl: string) {
+  let currentUrl = initialUrl;
+  for (let redirect = 0; redirect <= 3; redirect += 1) {
+    const current = new URL(currentUrl);
+    await assertPublicHost(current.hostname);
+    const response = await fetch(current, {
+      redirect: 'manual',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'Referer': `${current.protocol}//${current.host}/`,
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (![301, 302, 303, 307, 308].includes(response.status)) return response;
+    const location = response.headers.get('location');
+    if (!location) throw new Error('Redirect without location');
+    currentUrl = new URL(location, current).toString();
+  }
+  throw new Error('Too many redirects');
+}
 export async function GET(request: NextRequest) {
   const imageUrl = request.nextUrl.searchParams.get('url');
   if (!imageUrl) {
@@ -42,30 +76,17 @@ export async function GET(request: NextRequest) {
     return new NextResponse('Invalid URL', { status: 400 });
   }
 
-  // SSRF 防护：拦截内网/环回/链路本地地址
-  if (isPrivateHost(parsed.hostname)) {
-    return new NextResponse('Forbidden host', { status: 403 });
-  }
-
   try {
-    // Derive Referer from the image's origin (helps bypass hotlink protection)
-    const referer = `${parsed.protocol}//${parsed.host}/`;
-
-    const response = await fetch(imageUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-        'Referer': referer,
-      },
-      signal: AbortSignal.timeout(15000),
-    });
+    const response = await fetchPublicImage(imageUrl);
 
     if (!response.ok) {
       return new NextResponse(`Upstream error: ${response.status}`, { status: response.status });
     }
 
-    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    const contentType = (response.headers.get('content-type') || '').split(';', 1)[0].trim().toLowerCase();
+    if (!contentType.startsWith('image/')) {
+      return new NextResponse('Upstream response is not an image', { status: 415 });
+    }
 
     // 大小上限：先看声明，下载后再实测（防无 Content-Length 的超大响应）
     const declaredLen = parseInt(response.headers.get('content-length') || '0', 10);
@@ -87,6 +108,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     const msg = (error as Error).message;
+    if (msg === 'Forbidden host') {
+      return new NextResponse(msg, { status: 403 });
+    }
     return new NextResponse(`Fetch failed: ${msg}`, { status: 502 });
   }
 }
