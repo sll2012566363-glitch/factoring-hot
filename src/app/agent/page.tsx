@@ -1,4 +1,4 @@
-import Header from '@/components/Header';
+import AppShell from '@/components/AppShell';
 
 const RSS_FEEDS = [
   { path: '/feed.xml', desc: '精选文章，近 7 天，按评分排序' },
@@ -33,22 +33,18 @@ function Code({ children }: { children: string }) {
 
 export default function AgentPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Agent 接入</h1>
-          <p className="text-sm text-gray-600">
-            把保理 HOT 接进 Claude Code、Cursor、ChatGPT 等 Agent，三种方式任选。
-          </p>
-        </div>
+    <AppShell>
+        <header className="page-intro">
+          <p className="page-eyebrow">Open access</p>
+          <h1 className="page-title">让行业情报进入你的工作流。</h1>
+          <p className="page-description">通过 Skill、RSS 或公开 REST API，把保理 HOT 接入你的 Agent、研究工具或资讯阅读器。</p>
+        </header>
 
         <div className="space-y-4">
           {/* Method 1: Skill */}
-          <section className="bg-white rounded-lg border border-gray-200 p-5">
-            <h2 className="text-base font-semibold text-gray-900 mb-1">1. Skill（推荐给 Agent 用）</h2>
-            <p className="text-sm text-gray-600 mb-3">
+          <section className="surface p-5">
+            <h2 className="section-title mb-1">1. Skill（推荐给 Agent 用）</h2>
+            <p className="text-sm text-[var(--muted)] mb-3">
               适用于 Claude Code、Cursor、Gemini CLI 等支持 SKILL.md 标准的 Agent。把下面链接发给你的 Agent，
               它会自动读取并安装为技能，之后可直接理解"保理""供应链金融""ABS"等相关提问该调用哪个接口。
             </p>
@@ -56,9 +52,9 @@ export default function AgentPage() {
           </section>
 
           {/* Method 2: RSS */}
-          <section className="bg-white rounded-lg border border-gray-200 p-5">
-            <h2 className="text-base font-semibold text-gray-900 mb-1">2. RSS 订阅</h2>
-            <p className="text-sm text-gray-600 mb-3">零配置，任何 RSS reader 都能订阅，不需要 API Key。</p>
+          <section className="surface p-5">
+            <h2 className="section-title mb-1">2. RSS 订阅</h2>
+            <p className="text-sm text-[var(--muted)] mb-3">零配置，任何 RSS reader 都能订阅，不需要 API Key。</p>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <tbody>
@@ -74,9 +70,9 @@ export default function AgentPage() {
           </section>
 
           {/* Method 3: REST API */}
-          <section className="bg-white rounded-lg border border-gray-200 p-5">
-            <h2 className="text-base font-semibold text-gray-900 mb-1">3. REST API</h2>
-            <p className="text-sm text-gray-600 mb-3">面向开发者的自定义集成，匿名可用，游标分页 + ETag 缓存。</p>
+          <section className="surface p-5">
+            <h2 className="section-title mb-1">3. REST API</h2>
+            <p className="text-sm text-[var(--muted)] mb-3">面向开发者的自定义集成，匿名可用，游标分页 + ETag 缓存。</p>
             <Code>{'https://factoring-hot.vercel.app'}</Code>
             <div className="overflow-x-auto mt-3">
               <table className="w-full text-sm">
@@ -103,9 +99,9 @@ export default function AgentPage() {
           </section>
 
           {/* Categories reference */}
-          <section className="bg-white rounded-lg border border-gray-200 p-5">
-            <h2 className="text-base font-semibold text-gray-900 mb-3">五分类 / 五维度</h2>
-            <p className="text-sm text-gray-600 mb-3">
+          <section className="surface p-5">
+            <h2 className="section-title mb-3">五分类 / 五维度</h2>
+            <p className="text-sm text-[var(--muted)] mb-3">
               article 的 <code className="text-xs bg-gray-50 border border-gray-200 rounded px-1 py-0.5">category</code> 字段，
               也是评分体系的五个维度，每维度 0–20 分，总分 0–100：
             </p>
@@ -129,7 +125,6 @@ export default function AgentPage() {
             </ul>
           </section>
         </div>
-      </main>
-    </div>
+    </AppShell>
   );
 }

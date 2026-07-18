@@ -1,6 +1,6 @@
 'use client';
 
-import Header from '@/components/Header';
+import AppShell from '@/components/AppShell';
 import { PeriodReportView } from '@/components/PeriodReportView';
 import { useState, useEffect } from 'react';
 
@@ -94,16 +94,12 @@ export default function MonthlyReportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="mb-6 flex items-center justify-between">
+    <AppShell wide>
+        <header className="page-intro flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">保理月刊</h1>
-            <p className="text-sm text-gray-600">
-              每月深度行业分析，自动选取评分最高的文章填入各板块
-            </p>
+            <p className="page-eyebrow">Monthly insight</p>
+            <h1 className="page-title">保理行业月度观察</h1>
+            <p className="page-description">每月汇集高价值文章与趋势信号，形成可回顾的行业观察。</p>
           </div>
 
           {/* Generate controls */}
@@ -125,12 +121,12 @@ export default function MonthlyReportPage() {
               {generating ? '生成中...' : '生成月刊'}
             </button>
           </div>
-        </div>
+        </header>
 
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Sidebar */}
           <aside className="lg:w-72 shrink-0">
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="surface p-4">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold text-gray-800">月刊列表</h2>
                 <select
@@ -200,7 +196,6 @@ export default function MonthlyReportPage() {
             )}
           </div>
         </div>
-      </main>
-    </div>
+    </AppShell>
   );
 }

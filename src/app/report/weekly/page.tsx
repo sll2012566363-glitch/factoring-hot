@@ -1,6 +1,6 @@
 'use client';
 
-import Header from '@/components/Header';
+import AppShell from '@/components/AppShell';
 import { PeriodReportView } from '@/components/PeriodReportView';
 import { useState, useEffect } from 'react';
 
@@ -64,16 +64,12 @@ export default function WeeklyReportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">保理周报</h1>
-          <p className="text-sm text-gray-600">
-            每周自动汇总的保理行业深度分析与趋势报告
-          </p>
-        </div>
+    <AppShell wide>
+        <header className="page-intro">
+          <p className="page-eyebrow">Weekly review</p>
+          <h1 className="page-title">保理行业周度复盘</h1>
+          <p className="page-description">每周聚合行业事件，帮助你看到短期噪声之外的趋势。</p>
+        </header>
 
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Sidebar: report list */}
@@ -145,7 +141,6 @@ export default function WeeklyReportPage() {
             )}
           </div>
         </div>
-      </main>
-    </div>
+    </AppShell>
   );
 }

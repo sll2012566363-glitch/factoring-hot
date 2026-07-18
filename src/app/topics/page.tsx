@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
-import Header from '@/components/Header';
+import AppShell from '@/components/AppShell';
 import { formatDateDaySafe } from '@/lib/date-utils';
 
 const supabase = createClient(
@@ -99,28 +99,15 @@ export default async function TopicsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header title="保理热榜" />
-
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page header */}
-        <div className="flex items-center justify-between mb-8">
+    <AppShell>
+        <header className="page-intro flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">热门话题</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              近 14 天多信源覆盖的高热度事件聚合，按信源数量和评分排序
-            </p>
+            <p className="page-eyebrow">Multi-source signals</p>
+            <h1 className="page-title">热门行业话题</h1>
+            <p className="page-description">近 14 天获得多个信源覆盖的事件，按覆盖广度与关注度排序。</p>
           </div>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-600 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            返回热榜
-          </Link>
-        </div>
+          <Link href="/" className="soft-button whitespace-nowrap">返回精选</Link>
+        </header>
 
         {hotTopics.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
@@ -130,11 +117,11 @@ export default async function TopicsPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {hotTopics.map(({ cluster, relatedArticles }, index) => (
               <div
                 key={cluster.id}
-                className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:border-blue-200 transition-colors"
+                className="surface overflow-hidden transition-colors hover:border-[var(--brand)]"
               >
                 {/* Card header */}
                 <div className="p-5 pb-4">
@@ -142,8 +129,8 @@ export default async function TopicsPage() {
                     {/* Rank badge */}
                     <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
                       index < 3
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-500'
+                        ? 'bg-[var(--brand)] text-white'
+                        : 'bg-[var(--brand-soft)] text-[var(--brand)]'
                     }`}>
                       {index + 1}
                     </div>
@@ -154,7 +141,7 @@ export default async function TopicsPage() {
                         href={cluster.primary_link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-lg font-semibold text-gray-900 leading-snug mb-2 hover:text-blue-600 transition-colors"
+                        className="text-lg font-semibold text-[var(--ink)] leading-snug mb-2 hover:text-[var(--brand)] transition-colors"
                       >
                         {cluster.primary_title}
                       </a>
@@ -163,19 +150,19 @@ export default async function TopicsPage() {
                       <div className="flex flex-wrap items-center gap-2 text-xs mt-2">
                         {/* Category tag */}
                         {cluster.primary_category && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded bg-[var(--brand-soft)] text-[var(--brand)] font-medium">
                             {SECTION_NAMES[cluster.primary_category] || cluster.primary_category}
                           </span>
                         )}
 
                         {/* Article count */}
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100 text-gray-600">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--paper)] text-[var(--muted)]">
                           {cluster.related_count + 1} 篇文章
                         </span>
 
                         {/* Source count */}
                         {cluster.source_count > 1 && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-50 text-green-600 font-medium">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--brand-soft)] text-[var(--brand)] font-medium">
                             {cluster.source_count} 个信源
                           </span>
                         )}
@@ -195,7 +182,7 @@ export default async function TopicsPage() {
 
                       {/* Excerpt */}
                       {cluster.primary_excerpt && (
-                        <p className="mt-2 text-sm text-gray-600 leading-relaxed line-clamp-2">
+                        <p className="mt-2 text-sm text-[var(--muted)] leading-relaxed line-clamp-2">
                           {cluster.primary_excerpt}
                         </p>
                       )}
@@ -217,16 +204,16 @@ export default async function TopicsPage() {
 
                 {/* Related articles */}
                 {relatedArticles.length > 0 && (
-                  <div className="border-t border-gray-100 px-5 py-3 bg-gray-50/50">
+                  <div className="border-t border-[var(--line)] px-5 py-3 bg-[var(--paper)]/50">
                     <div className="text-xs font-medium text-gray-500 mb-2">相关报道</div>
                     <ul className="space-y-1.5">
                       {relatedArticles.slice(0, 6).map(article => (
                         <li key={article.id}>
                           <Link
                             href={`/article/${article.id}`}
-                            className="flex items-center gap-2 text-sm text-gray-700 hover:text-blue-600 transition-colors group"
+                            className="flex items-center gap-2 text-sm text-[var(--ink)] hover:text-[var(--brand)] transition-colors group"
                           >
-                            <span className="w-1 h-1 rounded-full bg-gray-300 group-hover:bg-blue-400 flex-shrink-0" />
+                            <span className="w-1 h-1 rounded-full bg-[var(--muted)] group-hover:bg-[var(--brand)] flex-shrink-0" />
                             <span className="truncate">{article.title}</span>
                             {article.score != null && (
                               <span className="text-xs text-gray-400 flex-shrink-0">
@@ -251,7 +238,6 @@ export default async function TopicsPage() {
             ))}
           </div>
         )}
-      </main>
-    </div>
+    </AppShell>
   );
 }

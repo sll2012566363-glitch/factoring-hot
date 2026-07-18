@@ -9,29 +9,29 @@ function ReportSectionView({ title, icon, articles, maxItems = 5 }: {
   maxItems?: number;
 }) {
   return (
-    <div className="mb-6">
+    <section className="report-section">
       <div className="flex items-center gap-2 mb-3">
         <span className="text-lg">{icon}</span>
-        <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-        <span className="text-xs text-gray-500">
+        <h3 className="section-title">{title}</h3>
+        <span className="text-xs text-[var(--muted)]">
           {articles.length} 条
         </span>
       </div>
       
-      <div className="space-y-2">
+      <div>
         {articles.slice(0, maxItems).map((article) => (
           <a
             key={article.id}
             href={article.link}
             target="_blank"
             rel="noopener noreferrer"
-            className="block text-sm text-gray-700 hover:text-blue-600 hover:bg-blue-50 p-2 rounded transition-colors"
+            className="block text-sm text-[var(--ink)] hover:text-[var(--brand)] transition-colors"
           >
             <span className="line-clamp-1">{article.title}</span>
           </a>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -43,28 +43,28 @@ interface DailyReportViewProps {
 export function DailyReportView({ report, articlesBySection }: DailyReportViewProps) {
   if (!report) {
     return (
-      <div className="text-center py-12">
-        <div className="text-gray-400 text-4xl mb-3">📋</div>
-        <p className="text-gray-600">今日日报尚未生成</p>
+      <div className="report-paper text-center py-12">
+        <div className="text-[var(--muted)] text-4xl mb-3">📋</div>
+        <p className="text-[var(--muted)]">今日日报尚未生成</p>
       </div>
     );
   }
   
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <article className="report-paper">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+        <h2 className="text-2xl font-bold mb-2">
           {report.report_title || `${report.report_date} 保理日报`}
         </h2>
         {report.executive_summary && (
-          <p className="text-sm text-gray-600 mb-2">{report.executive_summary}</p>
+          <p className="text-sm text-[var(--muted)] leading-relaxed mb-2">{report.executive_summary}</p>
         )}
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-[var(--muted)]">
           共收录 {report.total_articles} 篇文章
         </p>
       </div>
       
-      <div className="space-y-6">
+      <div>
         {report.sections.map((section) => (
           <ReportSectionView
             key={section.id}
@@ -75,7 +75,7 @@ export function DailyReportView({ report, articlesBySection }: DailyReportViewPr
           />
         ))}
       </div>
-    </div>
+    </article>
   );
 }
 

@@ -6,6 +6,7 @@ import type { Metadata } from 'next';
 import * as cheerio from 'cheerio';
 import { extractContentHtml, extractPlainText, extractMetaDescription } from '@/lib/extract-content';
 import { formatRelativeTime, formatDateSafe } from '@/lib/date-utils';
+import AppShell from '@/components/AppShell';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -165,26 +166,15 @@ export default async function ArticleDetailPage({ params }: PageProps) {
   const formatDate = (d: Date) => formatDateSafe(d);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Link href="/" className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 dark:text-gray-600 transition-colors flex-shrink-0">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </Link>
-          <span className="text-xs text-blue-600 dark:text-blue-400 font-medium px-2 py-0.5 bg-blue-50 dark:bg-blue-950/40 rounded flex-shrink-0">{sectionName}</span>
-          <span className="text-sm text-gray-500 dark:text-gray-400 truncate">{article.source_name}</span>
-        </div>
-      </header>
-
-      <main className="max-w-3xl mx-auto px-4 py-8">
-        {/* Meta */}
-        <div className="flex flex-wrap items-center gap-2 mb-5">
+    <AppShell wide>
+      <article>
+        <header className="article-head">
+        <div className="article-source">
+          <Link href="/" className="soft-button">返回精选</Link>
+          <span className="feed-tag">{sectionName}</span>
+          <span>{article.source_name}</span>
           {article.score != null && (
-            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-yellow-50 dark:bg-yellow-950/40 text-yellow-700 dark:text-yellow-400 border border-yellow-100 dark:border-yellow-900">
-              {Math.round(article.score)} 分
-            </span>
+            <span className="feed-item-score">{Math.round(article.score)} 分</span>
           )}
           <time className="text-xs text-gray-400" dateTime={article.pub_date}>
             {formatDate(pubDate)}
@@ -201,15 +191,11 @@ export default async function ArticleDetailPage({ params }: PageProps) {
             </>
           )}
         </div>
-
-        {/* Title */}
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mb-5 leading-snug">
-          {article.title}
-        </h1>
+        <h1 className="article-title">{article.title}</h1>
 
         {/* AI Selection Reason */}
         {article.ai_reason && (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900 mb-5">
+          <div className="article-reason">
             <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
@@ -218,15 +204,12 @@ export default async function ArticleDetailPage({ params }: PageProps) {
         )}
 
         {/* Excerpt */}
-        {excerpt && (
-          <div className="bg-blue-50 dark:bg-blue-950/40 border-l-4 border-blue-300 dark:border-blue-800 p-4 mb-6 rounded-r-lg">
-            <p className="text-sm text-blue-800 dark:text-blue-300 leading-relaxed">{excerpt}</p>
-          </div>
-        )}
+        {excerpt && <p className="article-lead">{excerpt}</p>}
+        </header>
 
         {/* Score dimensions */}
         {article.score_dimensions && (
-          <div className="grid grid-cols-5 gap-2 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 my-6">
             {Object.entries(article.score_dimensions as Record<string, number>).map(([dim, val]) => {
               const labels: Record<string, string> = {
                 frontier: '前沿解读', industry_model: '行业模式',
@@ -234,9 +217,9 @@ export default async function ArticleDetailPage({ params }: PageProps) {
                 policy: '政策敏感度', market: '市场信号', risk: '风险预警', innovation: '创新实践',
               };
               return (
-                <div key={dim} className="bg-white dark:bg-gray-900 rounded-lg border border-gray-100 dark:border-gray-800 p-3 text-center">
-                  <div className="text-xl font-bold text-blue-600 dark:text-blue-400">{val}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{labels[dim] || dim}</div>
+                <div key={dim} className="surface p-3 text-center">
+                  <div className="text-xl font-bold text-[var(--brand)]">{val}</div>
+                  <div className="text-xs text-[var(--muted)] mt-1">{labels[dim] || dim}</div>
                 </div>
               );
             })}
@@ -244,21 +227,16 @@ export default async function ArticleDetailPage({ params }: PageProps) {
         )}
 
         {/* Content — 优先渲染HTML，降级为纯文本 */}
-        {(contentHtml || (content && content.length > 20)) && (
-          <div className="flex items-center gap-3 mb-4 mt-2">
-            <span className="text-xs text-gray-400 tracking-widest">原文</span>
-            <div className="flex-1 border-t border-gray-200 dark:border-gray-800"></div>
-          </div>
-        )}
+        {(contentHtml || (content && content.length > 20)) && <div className="flex items-center gap-3 mb-4 mt-8"><span className="text-xs text-[var(--muted)] tracking-widest">内容原文</span><div className="flex-1 border-t border-[var(--line)]" /></div>}
         {contentHtml ? (
-          <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6 sm:p-8">
+          <div className="article-content">
             <article
               className="article-body"
               dangerouslySetInnerHTML={{ __html: contentHtml }}
             />
           </div>
         ) : content && content.length > 20 ? (
-          <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6 sm:p-8">
+          <div className="article-content">
             <div className="text-gray-700 dark:text-gray-300 dark:text-gray-600 leading-7 text-[15px] space-y-4">
               {content.split(/(?<=[。！？\n])\s*/).filter((p: string) => p.trim().length > 5).map((para: string, i: number) => (
                 <p key={i} className="indent-8">{para.trim()}</p>
@@ -266,24 +244,19 @@ export default async function ArticleDetailPage({ params }: PageProps) {
             </div>
           </div>
         ) : (
-          <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6 text-center text-gray-400 text-sm">
+          <div className="article-content text-center text-[var(--muted)] text-sm">
             该文章暂无正文内容，可点击"查看原文"访问原始链接
           </div>
         )}
 
         {/* Actions */}
-        <div className="mt-8 border-t border-gray-200 dark:border-gray-800 pt-6">
+        <div className="mt-8 border-t border-[var(--line)] pt-6">
           <div className="flex items-center justify-between">
             <div className="text-xs text-gray-400">来源：{article.source_name}</div>
             <div className="flex items-center gap-3">
-              <Link href="/" className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-sm rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                返回
-              </Link>
+              <Link href="/" className="soft-button">返回精选</Link>
               <a href={article.link} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors">
+                className="primary-button">
                 查看原文
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -292,8 +265,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
             </div>
           </div>
         </div>
-      </main>
-
-    </div>
+      </article>
+    </AppShell>
   );
 }

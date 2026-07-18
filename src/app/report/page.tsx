@@ -1,6 +1,6 @@
 'use client';
 
-import Header from '@/components/Header';
+import AppShell from '@/components/AppShell';
 import { DailyReportView } from '@/components/DailyReportView';
 import { useState, useEffect } from 'react';
 import type { DailyReport, Article } from '@/types';
@@ -41,18 +41,12 @@ export default function DailyReportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            保理日报
-          </h1>
-          <p className="text-sm text-gray-600">
-            每日自动生成的专业保理行业资讯摘要
-          </p>
-        </div>
+    <AppShell>
+        <header className="page-intro">
+          <p className="page-eyebrow">Daily Briefing</p>
+          <h1 className="page-title">保理行业日报</h1>
+          <p className="page-description">以当日行业信号为线索，汇总监管、市场、交易与风险变化。</p>
+        </header>
         
         {loading ? (
           <div className="text-center py-12 text-gray-500">加载中...</div>
@@ -61,7 +55,6 @@ export default function DailyReportPage() {
         ) : (
           <DailyReportView report={report} articlesBySection={articlesBySection} />
         )}
-      </main>
-    </div>
+    </AppShell>
   );
 }

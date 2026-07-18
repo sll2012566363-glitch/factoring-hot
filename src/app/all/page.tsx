@@ -1,6 +1,6 @@
 'use client';
 
-import Header from '@/components/Header';
+import AppShell from '@/components/AppShell';
 import CategoryFilter from '@/components/CategoryFilter';
 import ArticleCard from '@/components/ArticleCard';
 import { useState, useEffect, useMemo } from 'react';
@@ -102,21 +102,15 @@ export default function AllArticles() {
   }, [articles, searchQuery]);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <Header />
-
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            全部文章
-          </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            查看所有采集到的保理与供应链金融相关资讯
-          </p>
-        </div>
+    <AppShell>
+        <header className="page-intro">
+          <p className="page-eyebrow">实时资料库</p>
+          <h1 className="page-title">全部行业动态</h1>
+          <p className="page-description">查看已通过相关性筛选的保理与供应链金融资讯，按最新入库时间持续更新。</p>
+        </header>
 
         {/* Search */}
-        <div className="relative mb-4">
+        <div className="feed-search mb-4 w-full">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
@@ -125,7 +119,7 @@ export default function AllArticles() {
             placeholder="搜索文章标题、内容、来源..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-800 rounded-lg bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full"
           />
         </div>
 
@@ -136,7 +130,7 @@ export default function AllArticles() {
         />
 
         {/* Articles list */}
-        <div className="mt-6 space-y-3">
+        <div className="mt-5">
           {filteredArticles.map(article => (
             <ArticleCard
               key={article.id}
@@ -155,7 +149,7 @@ export default function AllArticles() {
           <div className="text-center mt-6">
             <button
               onClick={loadMore}
-              className="px-6 py-2 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 dark:text-gray-600 text-sm border border-gray-200 dark:border-gray-800 rounded-lg hover:bg-gray-50 dark:bg-gray-950 transition-colors"
+              className="soft-button"
             >
               加载更多
             </button>
@@ -173,7 +167,6 @@ export default function AllArticles() {
             {searchQuery ? `未找到与"${searchQuery}"相关的文章` : '暂无文章'}
           </div>
         )}
-      </main>
-    </div>
+    </AppShell>
   );
 }

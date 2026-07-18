@@ -1,4 +1,4 @@
-import Header from '@/components/Header';
+import AppShell from '@/components/AppShell';
 
 interface ChangelogEntry {
   date: string;
@@ -20,23 +20,21 @@ const CHANGELOG: ChangelogEntry[] = [
 
 export default function ChangelogPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">更新日志</h1>
-          <p className="text-sm text-gray-600">这个站在做的所有看得见的改动，按时间倒序。</p>
-        </div>
+    <AppShell>
+        <header className="page-intro">
+          <p className="page-eyebrow">Changelog</p>
+          <h1 className="page-title">产品更新日志</h1>
+          <p className="page-description">保理 HOT 所有可见能力的更新，按时间倒序记录。</p>
+        </header>
 
         <div className="space-y-4">
           {CHANGELOG.map(entry => (
-            <section key={entry.date} className="bg-white rounded-lg border border-gray-200 p-5">
-              <h2 className="text-sm font-mono font-semibold text-gray-500 mb-3">{entry.date}</h2>
+            <section key={entry.date} className="surface p-5">
+              <h2 className="text-sm font-mono font-semibold text-[var(--brand)] mb-3">{entry.date}</h2>
               <ul className="space-y-1.5">
                 {entry.items.map(item => (
-                  <li key={item} className="flex items-start gap-2 text-sm text-gray-700">
-                    <span className="text-blue-400 mt-0.5">·</span>
+                <li key={item} className="flex items-start gap-2 text-sm text-[var(--muted)]">
+                  <span className="text-[var(--brand)] mt-0.5">·</span>
                     {item}
                   </li>
                 ))}
@@ -44,7 +42,6 @@ export default function ChangelogPage() {
             </section>
           ))}
         </div>
-      </main>
-    </div>
+    </AppShell>
   );
 }

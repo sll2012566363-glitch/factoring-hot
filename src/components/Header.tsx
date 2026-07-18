@@ -1,109 +1,67 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { BookOpenText, Bot, CircleHelp, FileClock, FileText, Flame, History, LayoutList, MessageSquareText, Rss, Sparkles, Tags } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 
-interface HeaderProps {
-  title?: string;
-  showNav?: boolean;
+const CONTENT_NAV = [
+  { href: '/', label: '精选', icon: Sparkles },
+  { href: '/all', label: '全部动态', icon: LayoutList },
+  { href: '/report', label: '行业日报', icon: FileText },
+  { href: '/report/weekly', label: '周度复盘', icon: FileClock },
+  { href: '/report/monthly', label: '月度观察', icon: BookOpenText },
+  { href: '/topics', label: '热门话题', icon: Tags },
+];
+
+const MORE_NAV = [
+  { href: '/agent', label: 'Agent 接入', icon: Bot },
+  { href: '/about', label: '关于本站', icon: CircleHelp },
+  { href: '/changelog', label: '更新日志', icon: History },
+  { href: '/archive', label: '报告归档', icon: BookOpenText },
+  { href: '/feedback', label: '反馈与纠错', icon: MessageSquareText },
+];
+
+function NavGroup({ title, items, pathname }: { title: string; items: typeof CONTENT_NAV; pathname: string }) {
+  return (
+    <section className="side-nav-group">
+      <p>{title}</p>
+      <div>
+        {items.map(({ href, label, icon: Icon }) => {
+          const active = href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
+          return (
+            <Link key={href} href={href} className={`side-nav-link ${active ? 'is-active' : ''}`}>
+              <Icon size={17} strokeWidth={active ? 2.25 : 1.8} />
+              <span>{label}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
 
-const MORE_LINKS = [
-  { href: '/agent', label: 'Agent 接入' },
-  { href: '/about', label: '关于' },
-  { href: '/changelog', label: '更新日志' },
-  { href: '/feedback', label: '反馈' },
-];
-
-// 按浏览维度分组：热榜=实时聚合，日报/周报=定期报告，热门话题=事件聚类
-// 「全部」（与热榜重复）、「往期」（空壳无数据）、「月刊」（无生成管道）已下线
-const NAV_LINKS = [
-  { href: '/', label: '热榜' },
-  { href: '/report', label: '日报' },
-  { href: '/report/weekly', label: '周报' },
-  { href: '/topics', label: '热门话题' },
-];
-
-export default function Header({ title = '保理热榜', showNav = true }: HeaderProps) {
-  const [moreOpen, setMoreOpen] = useState(false);
-  const moreRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
-        setMoreOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', onClickOutside);
-    return () => document.removeEventListener('mousedown', onClickOutside);
-  }, []);
-
+export default function Header() {
+  const pathname = usePathname();
   return (
-    <header className="sticky top-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                保
-              </div>
-              <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                {title}
-              </span>
-            </Link>
-
-            {showNav && (
-              <nav className="hidden md:flex items-center gap-1">
-                {NAV_LINKS.map(link => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="px-3 py-1.5 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-                <div className="relative" ref={moreRef}>
-                  <button
-                    onClick={() => setMoreOpen(v => !v)}
-                    className="px-3 py-1.5 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors flex items-center gap-1"
-                  >
-                    更多
-                    <svg
-                      className={`w-3 h-3 transition-transform ${moreOpen ? 'rotate-180' : ''}`}
-                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {moreOpen && (
-                    <div className="absolute left-0 top-full mt-1 w-40 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-50">
-                      {MORE_LINKS.map(link => (
-                        <Link
-                          key={link.href}
-                          href={link.href}
-                          onClick={() => setMoreOpen(false)}
-                          className="block px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400"
-                        >
-                          {link.label}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </nav>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="hidden sm:inline text-xs text-gray-500 dark:text-gray-400">
-              保理与供应链金融资讯聚合
-            </span>
-            <ThemeToggle />
-          </div>
+    <>
+      <header className="mobile-header">
+        <Link href="/" className="brand-lockup"><span>保</span><strong>保理 HOT</strong></Link>
+        <div className="mobile-header-actions"><Link href="/all" aria-label="查看全部动态"><LayoutList size={19} /></Link><ThemeToggle /></div>
+      </header>
+      <aside className="side-nav">
+        <Link href="/" className="brand-lockup"><span>保</span><strong>保理 HOT</strong></Link>
+        <p className="brand-subtitle">保理与供应链金融<br />行业情报站</p>
+        <nav>
+          <NavGroup title="内容" items={CONTENT_NAV} pathname={pathname} />
+          <NavGroup title="接入与更多" items={MORE_NAV} pathname={pathname} />
+        </nav>
+        <div className="side-nav-bottom">
+          <Link href="/agent" className="side-rss"><Rss size={14} /> RSS / API 开放接入</Link>
+          <ThemeToggle />
+          <small>Factoring HOT · since 2026</small>
         </div>
-      </div>
-    </header>
+      </aside>
+    </>
   );
 }
