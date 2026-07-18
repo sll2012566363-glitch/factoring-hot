@@ -17,46 +17,25 @@ export async function GET(request: NextRequest) {
   const results: Record<string, any> = {};
   const startTime = Date.now();
 
-  try {
-    // Step 1: Fetch new articles
+  const runStep = async (name: string, fn: () => Promise<unknown>) => {
     try {
-      const { runFetch } = await import('@/scripts/fetch-sources');
-      results.fetch = await runFetch();
-    } catch (err) {
-      results.fetch = { error: (err as Error).message };
+      results[name] = await fn();
+      return true;
+    } catch (error) {
+      results[name] = { error: error instanceof Error ? error.message : String(error) };
+      return false;
     }
+  };
 
-    // Step 2: Enrich articles (body text + dates)
-    try {
-      const { runEnrich } = await import('@/scripts/enrich-articles');
-      results.enrich = await runEnrich();
-    } catch (err) {
-      results.enrich = { error: (err as Error).message };
-    }
+  const fetchOk = await runStep('fetch', async () => (await import('@/scripts/fetch-sources')).runFetch());
+  const enrichOk = fetchOk && await runStep('enrich', async () => (await import('@/scripts/enrich-articles')).runEnrich());
+  const scoreOk = enrichOk && await runStep('score', async () => {
+    if (!process.env.LLM_API_KEY && !process.env.DEEPSEEK_API_KEY) throw new Error('LLM_API_KEY not configured');
+    return (await import('@/scripts/llm-score')).runScore();
+  });
+  const clusterOk = scoreOk && await runStep('cluster', async () => (await import('@/scripts/cluster-events')).runClustering());
+  const success = Boolean(fetchOk && enrichOk && scoreOk && clusterOk);
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
-    // Step 3: LLM scoring
-    try {
-      // llm-score.ts 用 LLM_API_KEY（兼容 DEEPSEEK_API_KEY 兜底）
-      if (process.env.LLM_API_KEY || process.env.DEEPSEEK_API_KEY) {
-        const { runScore } = await import('@/scripts/llm-score');
-        results.score = await runScore();
-      } else {
-        results.score = { skipped: true, reason: 'LLM_API_KEY not set' };
-      }
-    } catch (err) {
-      results.score = { error: (err as Error).message };
-    }
-
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    return NextResponse.json({
-      success: true,
-      elapsed_seconds: Number(elapsed),
-      results,
-    });
-  } catch (err) {
-    return NextResponse.json(
-      { error: (err as Error).message, results },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({ success, elapsed_seconds: Number(elapsed), results }, { status: success ? 200 : 500 });
 }

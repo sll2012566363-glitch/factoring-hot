@@ -90,7 +90,7 @@ async function fetchFullContent(url: string): Promise<{ html: string; text: stri
 }
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 /** 同一请求内 generateMetadata 与页面组件共享查询结果 */
@@ -99,12 +99,14 @@ const getArticle = cache(async (id: string) => {
     .from('articles')
     .select('*')
     .eq('id', id)
+    .or('pre_filtered.is.null,pre_filtered.eq.true')
     .single();
   return error ? null : data;
 });
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const article = await getArticle(params.id);
+  const { id } = await params;
+  const article = await getArticle(id);
   if (!article) return { title: '文章不存在 · 保理热榜' };
   const description = (article.excerpt || article.content || '').substring(0, 120);
   const cover = (article as any).cover_image || undefined;
@@ -121,7 +123,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function ArticleDetailPage({ params }: PageProps) {
-  const article = await getArticle(params.id);
+  const { id } = await params;
+  const article = await getArticle(id);
 
   if (!article) {
     notFound();
@@ -247,7 +250,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
           </div>
         ) : (
           <div className="article-content text-center text-[var(--muted)] text-sm">
-            该文章暂无正文内容，可点击"查看原文"访问原始链接
+            此信源暂未收录可公开解析的完整正文；可查看摘要及原始链接。
           </div>
         )}
 

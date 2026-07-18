@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireInternalApiKey } from '@/lib/api-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
     .single();
   
   // If not found, fall back to the most recent report
+  let isStale = false;
   if (error || !report) {
     const { data: latestReport, error: latestError } = await supabase
       .from('daily_reports')
@@ -34,21 +36,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Report not found' }, { status: 404 });
     }
     report = latestReport;
+    isStale = report.report_date !== date;
   }
-  
-  return NextResponse.json(report);
+
+  return NextResponse.json({ ...report, requested_date: date, is_stale: isStale });
 }
 
 export async function POST(request: NextRequest) {
-  // Auth check
-  const apiKey = process.env.API_KEY;
-  if (apiKey) {
-    const headerKey = request.headers.get('authorization')?.replace('Bearer ', '');
-    const queryKey = request.nextUrl.searchParams.get('api_key');
-    if (headerKey !== apiKey && queryKey !== apiKey) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-  }
+  const authError = requireInternalApiKey(request);
+  if (authError) return authError;
 
   try {
     const body = await request.json();

@@ -77,7 +77,7 @@ function getTopSources(articles: any[], limit: number) {
 
 // ── Daily Report ──────────────────────────────────────
 
-async function generateDailyReport(dateStr?: string) {
+export async function generateDailyReport(dateStr?: string) {
   const bj = getBeijingDate();
   const date = dateStr || bj.toISOString().split('T')[0];
 
@@ -97,15 +97,10 @@ async function generateDailyReport(dateStr?: string) {
 
   if (error || !articles) {
     console.error('Failed to fetch articles:', error);
-    return;
+    throw error || new Error('Failed to fetch daily report articles');
   }
 
   console.log(`Found ${articles.length} scored articles for ${date}`);
-
-  if (articles.length === 0) {
-    console.log('No articles for today, skipping report generation.');
-    return;
-  }
 
   // Build sections
   const sections = Object.values(SECTION_CONFIG).map(cfg => {
@@ -138,7 +133,9 @@ async function generateDailyReport(dateStr?: string) {
     report_title: `${date} 保理日报`,
     sections,
     total_articles: articles.length,
-    executive_summary: `${date}共收录${articles.length}篇行业资讯，平均评分${avgScore}分。`,
+    executive_summary: articles.length > 0
+      ? `${date}共收录${articles.length}篇行业资讯，平均评分${avgScore}分。`
+      : `${date}暂无已完成评分的新增行业资讯；系统仍在持续抓取与核验。`,
     generated_at: new Date().toISOString(),
   };
 
@@ -148,15 +145,17 @@ async function generateDailyReport(dateStr?: string) {
 
   if (insertError) {
     console.error('Failed to save daily report:', insertError);
+    throw insertError;
   } else {
     console.log(`✅ Daily report generated: ${report.report_title}`);
     console.log(`   Total: ${articles.length} articles, avg score: ${avgScore}`);
   }
+  return report;
 }
 
 // ── Weekly Report ──────────────────────────────────────
 
-async function generateWeeklyReport(year: number, week: number) {
+export async function generateWeeklyReport(year: number, week: number) {
   console.log(` Generating weekly report for ${year} week ${week}...`);
 
   const startDate = getWeekStartDate(year, week);
@@ -174,15 +173,10 @@ async function generateWeeklyReport(year: number, week: number) {
 
   if (error || !articles) {
     console.error('Failed to fetch articles:', error);
-    return;
+    throw error || new Error('Failed to fetch weekly report articles');
   }
 
   console.log(`Found ${articles.length} articles for this week`);
-
-  if (articles.length === 0) {
-    console.log('No articles for this week, skipping.');
-    return;
-  }
 
   const byCategory = (cat: string) => articles.filter(a => a.category === cat);
 
@@ -191,7 +185,8 @@ async function generateWeeklyReport(year: number, week: number) {
   const dispute = byCategory('dispute');
   if (regulatory.length > 0) insights.push(`本周前沿监管新闻${regulatory.length}篇，${regulatory[0].title}值得重点关注。`);
   if (dispute.length > 0) insights.push(`前沿争议解决类资讯${dispute.length}篇，${dispute[0].title}需引起注意。`);
-  insights.push(`评分最高文章：${articles[0].title}（${articles[0].score}分）`);
+  if (articles[0]) insights.push(`评分最高文章：${articles[0].title}（${articles[0].score}分）`);
+  if (articles.length === 0) insights.push('本周暂无已完成评分的新增行业资讯。');
 
   const report = {
     id: `weekly-${year}-W${week}`,
@@ -244,9 +239,11 @@ async function generateWeeklyReport(year: number, week: number) {
 
   if (insertError) {
     console.error('Failed to save weekly report:', insertError);
+    throw insertError;
   } else {
     console.log('✅ Weekly report generated successfully!');
   }
+  return report;
 }
 
 // ── Monthly Report ─────────────────────────────────────

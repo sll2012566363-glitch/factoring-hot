@@ -20,6 +20,11 @@ CREATE TABLE IF NOT EXISTS sources (
   selector TEXT,
   active BOOLEAN DEFAULT TRUE,
   last_fetched_at TIMESTAMPTZ,
+  last_fetch_status TEXT CHECK (last_fetch_status IN ('success', 'error')),
+  last_fetch_error TEXT,
+  last_fetch_article_count INTEGER NOT NULL DEFAULT 0,
+  last_fetch_new_article_count INTEGER NOT NULL DEFAULT 0,
+  consecutive_failures INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -33,6 +38,7 @@ COMMENT ON COLUMN sources.type IS '类型：government=政府, association=协�
 COMMENT ON COLUMN sources.category IS '分类：policy, market, risk, innovation';
 COMMENT ON COLUMN sources.priority IS '优先级：T1=核心信源, T1.5=重要信源, T2=一般信源';
 COMMENT ON COLUMN sources.weight IS '权重：0.5-1.5，影响评分';
+COMMENT ON COLUMN sources.last_fetch_status IS '最近一次抓取结果：success/error';
 
 -- ========================================
 -- Table 2: Articles (文章)

@@ -65,6 +65,7 @@ async function main() {
   const startTime = Date.now();
   const args = process.argv.slice(2);
   const fetchOnly = args.includes('--fetch-only');
+  const realtime = args.includes('--realtime');
 
   if (fetchOnly) {
     console.log('🔄 快速抓取模式（仅抓取，不评分不聚类）...\n');
@@ -72,6 +73,18 @@ async function main() {
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`\n${ok ? '✅' : '✗'} 快速抓取完成，耗时 ${elapsed}s`);
     if (!ok) process.exitCode = 1;
+    return;
+  }
+
+  if (realtime) {
+    console.log('⚡ 实时更新模式（抓取 → 预筛 → 正文 → 评分）...\n');
+    const results = [
+      await runStep('1/4 抓取文章', 'src/scripts/fetch-sources.ts'),
+      await runStep('2/4 预筛过滤', 'src/scripts/pre-filter.ts'),
+      await runStep('3/4 充实正文', 'src/scripts/enrich-articles.ts'),
+      await runStep('4/4 LLM评分', 'src/scripts/llm-score.ts'),
+    ];
+    if (!results.every(Boolean)) process.exitCode = 1;
     return;
   }
 

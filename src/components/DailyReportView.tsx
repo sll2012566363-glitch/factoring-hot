@@ -62,6 +62,11 @@ export function DailyReportView({ report, articlesBySection }: DailyReportViewPr
         <p className="text-sm text-[var(--muted)]">
           共收录 {report.total_articles} 篇文章
         </p>
+        <p className={`report-freshness ${report.is_stale ? 'is-stale' : ''}`}>
+          {report.is_stale
+            ? `当前展示 ${report.report_date} 的最近一期，${report.requested_date || '今日'} 日报尚未生成。`
+            : `报告日期：${report.report_date} · 生成于 ${new Date(report.generated_at).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })}`}
+        </p>
       </div>
       
       <div>

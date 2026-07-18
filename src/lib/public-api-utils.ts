@@ -66,7 +66,8 @@ interface RateEntry {
 
 const rateMap = new Map<string, RateEntry>();
 const RATE_WINDOW_MS = 60_000; // 1 minute window
-const RATE_LIMIT = 60;         // 60 requests per minute
+const RATE_LIMIT = Math.min(Math.max(Number(process.env.PUBLIC_API_RATE_LIMIT) || 60, 10), 600);
+const MAX_RATE_KEYS = 10_000;
 
 function getClientIP(request: NextRequest): string {
   return (
@@ -79,6 +80,13 @@ function getClientIP(request: NextRequest): string {
 export function checkRateLimit(request: NextRequest): NextResponse | null {
   const ip = getClientIP(request);
   const now = Date.now();
+  // Serverless instances are short lived, so this is only a local safety net.
+  // Vercel Firewall/WAF remains the cross-instance enforcement point.
+  if (rateMap.size > MAX_RATE_KEYS || Math.random() < 0.01) {
+    for (const [key, value] of rateMap) {
+      if (now - value.windowStart > RATE_WINDOW_MS) rateMap.delete(key);
+    }
+  }
   const entry = rateMap.get(ip);
 
   if (!entry || now - entry.windowStart > RATE_WINDOW_MS) {

@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
   // Build query
   let query = adminClient
     .from('articles')
-    .select('*', { count: 'exact' })
+    .select('id, title, link, excerpt, source_name, source_id, category, priority, score, score_dimensions, scoring_method, is_selected, event_id, event_title, pub_date, created_at', { count: 'exact' })
     // pre-filter.ts 判不相关的文章排除展示
     .or('pre_filtered.is.null,pre_filtered.eq.true')
     .order('created_at', { ascending: false })

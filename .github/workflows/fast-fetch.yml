@@ -1,14 +1,18 @@
-name: Fast Fetch (every 10min)
+name: Realtime Pipeline (every 10min)
 
 on:
   schedule:
     - cron: '*/10 * * * *'  # 每10分钟
   workflow_dispatch:       # 手动触发
 
+concurrency:
+  group: factoring-content-pipeline
+  cancel-in-progress: false
+
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,14 +25,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 2026-07-14: isRelevant() 并发本身生效了（同一次跑处理到接近40个
-      # 信源列表末尾，比顺序模式的27个明显推进），但没解决根子问题——
-      # runStep() 的 execSync 进程树杀不透，这次表现更差：直接挂死到
-      # 手动 cancel 才结束（而不是静默孤儿继续跑）。光让代码跑更快是
-      # 赌网络不抖，不是修复。再关掉，等 runStep() 换成能真正杀死
-      # 进程组的实现再重开。
-      - name: Fast fetch (articles only, no scoring)
+      - name: Realtime fetch, enrich and score
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx tsx src/scripts/run-pipeline.ts --fetch-only
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_API_URL: ${{ secrets.LLM_API_URL }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+        run: npx tsx src/scripts/run-pipeline.ts --realtime

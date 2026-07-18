@@ -64,6 +64,8 @@ export interface DailyReport {
   total_articles: number;
   executive_summary: string;
   generated_at: string;
+  requested_date?: string;
+  is_stale?: boolean;
 }
 
 export interface ReportSection {

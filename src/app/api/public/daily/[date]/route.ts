@@ -15,12 +15,12 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://factoring-hot.verc
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { date: string } }
+  { params }: { params: Promise<{ date: string }> }
 ) {
   const rateBlocked = checkRateLimit(request);
   if (rateBlocked) return rateBlocked;
 
-  const date = params.date;
+  const { date } = await params;
 
   // Validate date format
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {

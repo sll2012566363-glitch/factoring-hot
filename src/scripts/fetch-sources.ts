@@ -12,6 +12,7 @@ const supabase = createClient(
 );
 
 const parser = new Parser();
+let extendedHealthColumnsAvailable: boolean | null = null;
 
 interface Source {
   id: string;
@@ -376,18 +377,40 @@ export async function runFetch() {
 
   let totalArticles = 0;
   let sourcesWithArticles = 0;
+  let failedSources = 0;
+
+  // The first update works against the old schema too. Extended telemetry is
+  // best-effort until the accompanying migration has been applied.
+  async function recordHealth(source: Source, outcome: 'success' | 'error', fetched: number, inserted: number, message?: string) {
+    const now = new Date().toISOString();
+    await supabase.from('sources').update({ last_fetched_at: now }).eq('id', source.id);
+    const payload = outcome === 'success'
+      ? { last_fetch_status: outcome, last_fetch_error: null, last_fetch_article_count: fetched, last_fetch_new_article_count: inserted, consecutive_failures: 0 }
+      : { last_fetch_status: outcome, last_fetch_error: (message || 'Unknown fetch error').substring(0, 500), last_fetch_article_count: fetched, last_fetch_new_article_count: inserted, consecutive_failures: (source as any).consecutive_failures ? (source as any).consecutive_failures + 1 : 1 };
+    if (extendedHealthColumnsAvailable === false) return;
+    const { error: healthError } = await supabase.from('sources').update(payload).eq('id', source.id);
+    if (healthError && /column .* does not exist/i.test(healthError.message)) {
+      extendedHealthColumnsAvailable = false;
+      console.warn('  ⚠ Source-health migration has not been applied; only last_fetched_at is being recorded.');
+    } else if (healthError) {
+      console.warn(`  ⚠ Health telemetry failed for ${source.name}: ${healthError.message}`);
+    } else {
+      extendedHealthColumnsAvailable = true;
+    }
+  }
 
   for (const source of sources as Source[]) {
-    let articles: Article[] = [];
+    try {
+      let articles: Article[] = [];
 
-    if (API_FETCHERS[source.id]) {
-      // Use custom API fetcher for SPA sources
-      articles = await API_FETCHERS[source.id](source);
-    } else if (source.rss) {
-      articles = await fetchRSS(source);
-    } else {
-      articles = await fetchHtmlContent(source);
-    }
+      if (API_FETCHERS[source.id]) {
+        articles = await API_FETCHERS[source.id](source);
+      } else if (source.rss) {
+        articles = await fetchRSS(source);
+      } else {
+        articles = await fetchHtmlContent(source);
+      }
+      const fetchedCount = articles.length;
 
     // 相关性闸门 + 未来日期拦截（治本：过滤不相关与未来日期文章）
     // 并发判断：LLM 兜底调用是同步阻塞的主要耗时来源，逐篇 await 会把一个
@@ -411,19 +434,27 @@ export async function runFetch() {
       a.pub_date = safe ? new Date(safe) : nowToMinute();
       passed.push(a);
     }
-    articles = passed;
+      articles = passed;
+      let insertedCount = 0;
 
-    if (articles.length > 0) {
-      const { error: insertError } = await supabase
-        .from('articles')
-        .upsert(articles, { onConflict: 'link', ignoreDuplicates: true });
+      if (articles.length > 0) {
+        const { data: inserted, error: insertError } = await supabase
+          .from('articles')
+          .upsert(articles, { onConflict: 'link', ignoreDuplicates: true })
+          .select('id');
 
-      if (insertError) {
-        console.error(`✗ Insert failed for ${source.name}:`, insertError.message);
-      } else {
-        totalArticles += articles.length;
-        sourcesWithArticles++;
+        if (insertError) throw new Error(`Insert failed: ${insertError.message}`);
+        insertedCount = inserted?.length || 0;
+        totalArticles += insertedCount;
+        if (fetchedCount > 0) sourcesWithArticles++;
       }
+
+      await recordHealth(source, 'success', fetchedCount, insertedCount);
+    } catch (err) {
+      failedSources++;
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`✗ Source failed for ${source.name}: ${message}`);
+      await recordHealth(source, 'error', 0, 0, message);
     }
 
     // Be polite: 800ms delay between sources
@@ -432,8 +463,9 @@ export async function runFetch() {
 
   console.log(`\n✅ Fetch complete!`);
   console.log(`   Sources with articles: ${sourcesWithArticles}/${sources.length}`);
+  console.log(`   Failed sources: ${failedSources}`);
   console.log(`   Total articles: ${totalArticles}`);
-  return { sourcesWithArticles, totalArticles, totalSources: sources.length };
+  return { sourcesWithArticles, failedSources, totalArticles, totalSources: sources.length };
 }
 
 // Only run when executed directly (tsx), not when imported

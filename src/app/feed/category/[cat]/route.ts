@@ -24,10 +24,11 @@ const VALID_CATEGORIES: Record<string, string> = {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { cat: string } }
+  { params }: { params: Promise<{ cat: string }> }
 ) {
   // Strip .xml suffix if present (Next.js may include it in the param)
-  const cat = params.cat.replace(/\.xml$/, '');
+  const { cat: rawCat } = await params;
+  const cat = rawCat.replace(/\.xml$/, '');
 
   if (!(cat in VALID_CATEGORIES)) {
     return NextResponse.json(

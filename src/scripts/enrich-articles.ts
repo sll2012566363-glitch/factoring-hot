@@ -15,6 +15,7 @@ interface Article {
   link: string;
   content: string;
   pub_date: string;
+  status?: string | null;
 }
 
 /**
@@ -156,7 +157,7 @@ export async function runEnrich() {
   // Fetch articles with empty or null content, skipping pre-filtered-out articles
   const { data: nullArticles, error } = await supabase
     .from('articles')
-    .select('id, title, link, content, pub_date')
+    .select('id, title, link, content, pub_date, status')
     .is('content', null)
     .or('pre_filtered.eq.true,pre_filtered.is.null')
     .limit(500);
@@ -169,7 +170,7 @@ export async function runEnrich() {
   // Also fetch articles with empty string content
   const { data: emptyArticles } = await supabase
     .from('articles')
-    .select('id, title, link, content, pub_date')
+    .select('id, title, link, content, pub_date, status')
     .eq('content', '')
     .or('pre_filtered.eq.true,pre_filtered.is.null')
     .limit(500);
@@ -177,7 +178,7 @@ export async function runEnrich() {
   // Also fetch articles that have plain text content but no content_html yet
   const { data: noHtmlArticles } = await supabase
     .from('articles')
-    .select('id, title, link, content, pub_date')
+    .select('id, title, link, content, pub_date, status')
     .is('content_html', null)
     .not('content', 'is', null)
     .neq('content', '')
@@ -219,6 +220,15 @@ export async function runEnrich() {
         content_html: result.content_html,
         excerpt: result.excerpt,
       };
+
+      // A source adapter can recover a body after a prior contentless pass.
+      // Reopen only those terminal no-content records for LLM scoring.
+      if (article.status === 'rejected' && result.content.length >= 20) {
+        updatePayload.status = 'pending';
+        updatePayload.scoring_method = null;
+        updatePayload.scored_at = null;
+        updatePayload.ai_reason = null;
+      }
 
       if (result.cover_image) {
         updatePayload.cover_image = result.cover_image;

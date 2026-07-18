@@ -2,8 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import HomeClient from '@/components/HomeClient';
 import { Article } from '@/types';
 
-// ISR：首屏服务端渲染 + 5 分钟增量再生，兼顾 SEO/首屏速度与数据新鲜度
-export const revalidate = 300;
+// 资讯流允许最多 60 秒缓存；抓取任务完成后，用户无需等待长 ISR 周期。
+export const revalidate = 60;
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireInternalApiKey } from '@/lib/api-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -50,15 +51,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  // Auth check
-  const apiKey = process.env.API_KEY;
-  if (apiKey) {
-    const headerKey = request.headers.get('authorization')?.replace('Bearer ', '');
-    const queryKey = request.nextUrl.searchParams.get('api_key');
-    if (headerKey !== apiKey && queryKey !== apiKey) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-  }
+  const authError = requireInternalApiKey(request);
+  if (authError) return authError;
 
   const body = await request.json();
   const year = Number.isNaN(parseInt(body.year)) ? new Date().getFullYear() : parseInt(body.year);

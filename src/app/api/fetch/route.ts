@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireInternalApiKey } from '@/lib/api-auth';
 
 /**
  * 手动触发抓取 API。
@@ -10,16 +11,8 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // Vercel Pro
 
 export async function POST(request: NextRequest) {
-  // 鉴权：必须配置 API_KEY 且请求携带正确 key（默认 closed）
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: 'API_KEY not configured' }, { status: 503 });
-  }
-  const headerKey = request.headers.get('authorization')?.replace('Bearer ', '');
-  const queryKey = request.nextUrl.searchParams.get('api_key');
-  if (headerKey !== apiKey && queryKey !== apiKey) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const authError = requireInternalApiKey(request);
+  if (authError) return authError;
 
   try {
     const { runFetch } = await import('@/scripts/fetch-sources');

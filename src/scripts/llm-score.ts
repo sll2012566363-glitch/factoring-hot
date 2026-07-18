@@ -161,12 +161,14 @@ export async function runScore() {
     throw new Error('LLM_API_KEY not set');
   }
 
-  // Fetch articles needing scoring, skipping pre-filtered-out articles
-  // Combined OR: (scoring_method IS NULL OR scoring_method = 'rule') AND (pre_filtered IS NULL OR pre_filtered = true)
+  // `scoring_method` records an attempt, not completion. Enrichment may add a
+  // body after an earlier failed attempt, so `score IS NULL` is authoritative.
   const { data: articles, error } = await supabase
     .from('articles')
     .select('id, title, content, excerpt, score')
-    .or('and(scoring_method.is.null,or(pre_filtered.is.null,pre_filtered.eq.true)),and(scoring_method.eq.rule,or(pre_filtered.is.null,pre_filtered.eq.true))')
+    .is('score', null)
+    .or('pre_filtered.is.null,pre_filtered.eq.true')
+    .or('status.is.null,status.neq.rejected')
     .limit(Math.min(Math.max(Number(process.env.SCORE_LIMIT) || 200, 1), 200));
 
   if (error || !articles) {
@@ -191,10 +193,14 @@ export async function runScore() {
     if ((!article.content || article.content.length < 10) && (!article.excerpt || article.excerpt.length < 10)) {
       const { error: skipError } = await supabase
         .from('articles')
-        // The existing database constraint permits only `llm`/`rule`. Keep a
-        // null score (so it is not promoted) but use the accepted terminal
-        // marker to prevent an hourly retry until body enrichment is improved.
-        .update({ scoring_method: 'llm', scored_at: new Date().toISOString() })
+        // Keep score null, but give contentless items a true terminal status.
+        // Enrichment reopens it if a later source adapter recovers the body.
+        .update({
+          scoring_method: 'llm',
+          scored_at: new Date().toISOString(),
+          status: 'rejected',
+          ai_reason: '原始信源未提供可用于评估的摘要或正文，暂不进入精选。',
+        })
         .eq('id', article.id);
       if (skipError) {
         console.log(`  ✗ Skip marker failed: ${skipError.message}\n`);

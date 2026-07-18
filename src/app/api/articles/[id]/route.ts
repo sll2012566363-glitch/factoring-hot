@@ -8,14 +8,15 @@ const supabase = createClient(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params;
+  const { id } = await params;
   
   const { data: article, error } = await supabase
     .from('articles')
-    .select('*')
+    .select('id, title, link, excerpt, content, content_html, cover_image, source_name, category, score, score_dimensions, pub_date, ai_reason, scoring_method, event_id, event_title, created_at')
     .eq('id', id)
+    .or('pre_filtered.is.null,pre_filtered.eq.true')
     .single();
   
   if (error || !article) {

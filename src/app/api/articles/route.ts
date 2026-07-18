@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireInternalApiKey } from '@/lib/api-auth';
+import { checkRateLimit } from '@/lib/public-api-utils';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,21 +9,15 @@ const supabase = createClient(
 );
 
 /** 写操作鉴权：必须配置 API_KEY 且请求携带正确 key（默认 closed） */
-function checkAuth(request: NextRequest): boolean {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) return false; // 未配置 key 一律拒绝写操作
-  const headerKey = request.headers.get('authorization')?.replace('Bearer ', '');
-  const queryKey = request.nextUrl.searchParams.get('api_key');
-  return headerKey === apiKey || queryKey === apiKey;
-}
-
 export async function GET(request: NextRequest) {
+  const rateBlocked = checkRateLimit(request);
+  if (rateBlocked) return rateBlocked;
   const searchParams = request.nextUrl.searchParams;
   const date = searchParams.get('date');
   const category = searchParams.get('category');
   const limitRaw = parseInt(searchParams.get('limit') || '40');
   const offsetRaw = parseInt(searchParams.get('offset') || '0');
-  const limit = Math.min(Math.max(Number.isNaN(limitRaw) ? 40 : limitRaw, 1), 500);
+  const limit = Math.min(Math.max(Number.isNaN(limitRaw) ? 40 : limitRaw, 1), 100);
   const offset = Math.max(Number.isNaN(offsetRaw) ? 0 : offsetRaw, 0);
   
   // 列表不返回 content_html（单条可达 30KB+，500 条能把响应撑到数 MB）；
@@ -67,9 +63,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!checkAuth(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const authError = requireInternalApiKey(request);
+  if (authError) return authError;
 
   try {
     const body = await request.json();
