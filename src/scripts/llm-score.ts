@@ -186,8 +186,20 @@ export async function runScore() {
 
     // Skip articles with no content at all
     if (!article.content || article.content.length < 10) {
-      console.log(`  ⊘ Skipped (no content)\n`);
-      skipped++;
+      const { error: skipError } = await supabase
+        .from('articles')
+        // The existing database constraint permits only `llm`/`rule`. Keep a
+        // null score (so it is not promoted) but use the accepted terminal
+        // marker to prevent an hourly retry until body enrichment is improved.
+        .update({ scoring_method: 'llm', scored_at: new Date().toISOString() })
+        .eq('id', article.id);
+      if (skipError) {
+        console.log(`  ✗ Skip marker failed: ${skipError.message}\n`);
+        failed++;
+      } else {
+        console.log(`  ⊘ Skipped permanently (no content)\n`);
+        skipped++;
+      }
       return;
     }
 
