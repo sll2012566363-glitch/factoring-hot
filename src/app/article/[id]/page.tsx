@@ -5,6 +5,7 @@ import { cache } from 'react';
 import type { Metadata } from 'next';
 import * as cheerio from 'cheerio';
 import { extractContentHtml, extractPlainText, extractMetaDescription } from '@/lib/extract-content';
+import { fetchSourceBody } from '@/lib/fetch-source-body';
 import { formatRelativeTime, formatDateSafe } from '@/lib/date-utils';
 import AppShell from '@/components/AppShell';
 
@@ -42,7 +43,8 @@ function extractExcerptFromContent(content: string): string {
 /** 从URL实时抓取完整正文（HTML版 + 纯文本版） */
 async function fetchFullContent(url: string): Promise<{ html: string; text: string; coverImage: string | null } | null> {
   try {
-    const res = await fetch(url, {
+    const sourceHtml = await fetchSourceBody(url);
+    const res = sourceHtml ? null : await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -51,21 +53,21 @@ async function fetchFullContent(url: string): Promise<{ html: string; text: stri
       signal: AbortSignal.timeout(15000),
       cache: 'no-store',
     });
-    if (!res.ok) return null;
+    if (res && !res.ok) return null;
 
     // ── 防止 PDF / 二进制 / 非 HTML 内容污染正文 ──
-    const contentType = (res.headers.get('content-type') || '').toLowerCase();
-    if (
+    const contentType = res ? (res.headers.get('content-type') || '').toLowerCase() : 'text/html';
+    if (res && (
       contentType.includes('application/pdf')
       || contentType.includes('application/octet-stream')
       || contentType.startsWith('image/')
       || contentType.startsWith('video/')
       || (!contentType.includes('text/') && !contentType.includes('html') && !contentType.includes('xml'))
-    ) {
+    )) {
       return null;
     }
 
-    const rawHtml = await res.text();
+    const rawHtml = sourceHtml || await res!.text();
 
     // ── 二次保险：即使 Content-Type 蒙混过关，%PDF 开头一律拦截 ──
     if (rawHtml.trimStart().startsWith('%PDF')) {

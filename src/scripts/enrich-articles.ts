@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { fetch as undiciFetch } from 'undici';
 import * as cheerio from 'cheerio';
 import { extractContentHtml, extractPlainText, extractMetaDescription } from '../lib/extract-content';
+import { fetchSourceBody } from '../lib/fetch-source-body';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -67,7 +68,8 @@ async function enrichArticle(article: Article): Promise<{
   cover_image: string | null;
 } | null> {
   try {
-    const response = await undiciFetch(article.link, {
+    const sourceHtml = await fetchSourceBody(article.link);
+    const response = sourceHtml ? null : await undiciFetch(article.link, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -76,25 +78,25 @@ async function enrichArticle(article: Article): Promise<{
       signal: AbortSignal.timeout(15000),
     });
 
-    if (!response.ok) {
+    if (response && !response.ok) {
       console.log(`  HTTP ${response.status} for ${article.link}`);
       return null;
     }
 
     // ── 防止 PDF / 二进制内容污染正文 ──
-    const ct = (response.headers.get('content-type') || '').toLowerCase();
-    if (
+    const ct = response ? (response.headers.get('content-type') || '').toLowerCase() : 'text/html';
+    if (response && (
       ct.includes('application/pdf')
       || ct.includes('application/octet-stream')
       || ct.startsWith('image/')
       || ct.startsWith('video/')
       || (!ct.includes('text/') && !ct.includes('html') && !ct.includes('xml'))
-    ) {
+    )) {
       console.log(`  ⏩ 跳过非HTML: ${ct} for ${article.title.substring(0, 30)}`);
       return null;
     }
 
-    const html = await response.text();
+    const html = sourceHtml || await response!.text();
 
     // 二次保险：即使 Content-Type 蒙混，%PDF 开头一律拦截
     if (html.trimStart().startsWith('%PDF')) return null;

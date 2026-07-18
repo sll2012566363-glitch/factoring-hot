@@ -7,9 +7,11 @@ import * as cheerio from 'cheerio';
  */
 
 export const CONTENT_SELECTORS = [
-  'article', '.article-content', '.content', '#content',
+  // Specific article containers must precede broad `.content` shells.
+  '#endText', '.newsText', '.detailContent', '.articleWrap',
+  'article', '.article-content', '#content',
   '.post-body', '.entry-content', '.TRS_Editor', '.text',
-  '.detail-content', '.news-content',
+  '.detail-content', '.news-content', '.content',
 ];
 
 export const REMOVE_SELECTORS = [
@@ -164,12 +166,16 @@ export function extractContentHtml($: cheerio.CheerioAPI, baseUrl: string): Extr
   $(REMOVE_SELECTORS).remove();
 
   let $content: any = null;
+  let bestScore = 0;
   for (const sel of CONTENT_SELECTORS) {
-    const $el = $(sel).first();
-    if ($el.length) {
+    $(sel).each((_i, el) => {
+      const $el = $(el);
       const text = $el.text().replace(/\s+/g, ' ').trim();
-      if (text.length > 80) { $content = $el; break; }
-    }
+      const links = $el.find('a');
+      const linkText = links.toArray().reduce((sum, link) => sum + $(link).text().replace(/\s+/g, ' ').trim().length, 0);
+      const score = text.length + $el.find('p').length * 120 + $el.find('img').length * 80 - linkText * 2;
+      if (text.length > 80 && score > bestScore) { $content = $el; bestScore = score; }
+    });
   }
 
   // 封面图：og:image 优先（过滤太小的图标）
