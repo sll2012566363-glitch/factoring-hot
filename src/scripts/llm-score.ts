@@ -14,6 +14,7 @@ interface Article {
   id: string;
   title: string;
   content: string;
+  excerpt?: string | null;
   score: number | null;
 }
 
@@ -79,7 +80,7 @@ function readDimensions(payload: Record<string, unknown>, score: number): ScoreR
 }
 
 async function scoreWithDeepSeek(article: Article): Promise<ScoreResult | null> {
-  const contentSnippet = (article.content || '').substring(0, 1000);
+  const contentSnippet = (article.content || article.excerpt || '').substring(0, 1000);
   const prompt = `请对以下保理/供应链金融文章评分(0-100)、生成一句话中文摘要(不超过80字)，并给出一句话选稿理由(中文，不超过80字)说明该文章为何值得入选。
 
 评分维度(各0-20分):
@@ -164,7 +165,7 @@ export async function runScore() {
   // Combined OR: (scoring_method IS NULL OR scoring_method = 'rule') AND (pre_filtered IS NULL OR pre_filtered = true)
   const { data: articles, error } = await supabase
     .from('articles')
-    .select('id, title, content, score')
+    .select('id, title, content, excerpt, score')
     .or('and(scoring_method.is.null,or(pre_filtered.is.null,pre_filtered.eq.true)),and(scoring_method.eq.rule,or(pre_filtered.is.null,pre_filtered.eq.true))')
     .limit(Math.min(Math.max(Number(process.env.SCORE_LIMIT) || 200, 1), 200));
 
@@ -184,8 +185,10 @@ export async function runScore() {
     const progress = `[${index + 1}/${articles.length}]`;
     console.log(`${progress} ${article.title.substring(0, 50)}...`);
 
-    // Skip articles with no content at all
-    if (!article.content || article.content.length < 10) {
+    // Several authoritative sources only expose a list-page summary. Score that
+    // summary instead of discarding a current, relevant signal solely because
+    // the original page blocks body extraction.
+    if ((!article.content || article.content.length < 10) && (!article.excerpt || article.excerpt.length < 10)) {
       const { error: skipError } = await supabase
         .from('articles')
         // The existing database constraint permits only `llm`/`rule`. Keep a
