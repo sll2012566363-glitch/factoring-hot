@@ -30,6 +30,54 @@ interface ScoreResult {
   reason?: string;
 }
 
+/** 兼容 StepFun 等 OpenAI-compatible 服务偶发的 Markdown、前缀文本或嵌套 JSON。 */
+function parseScorePayload(raw: string): Record<string, unknown> | null {
+  const candidates = [raw, raw.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim()];
+  const objectStart = raw.indexOf('{');
+  const objectEnd = raw.lastIndexOf('}');
+  if (objectStart >= 0 && objectEnd > objectStart) candidates.push(raw.slice(objectStart, objectEnd + 1));
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === 'object') return parsed as Record<string, unknown>;
+    } catch { /* try the next normalized form */ }
+  }
+  return null;
+}
+
+function readScore(payload: Record<string, unknown>): number | null {
+  const nested = [payload, payload.data, payload.result].filter((value): value is Record<string, unknown> => !!value && typeof value === 'object');
+  for (const value of nested) {
+    const score = value.score ?? value['总分'] ?? value['评分'];
+    const numeric = typeof score === 'number' ? score : Number(score);
+    if (Number.isFinite(numeric) && numeric >= 0 && numeric <= 100) return numeric;
+  }
+  return null;
+}
+
+function readText(payload: Record<string, unknown>, keys: string[]): string {
+  const nested = [payload, payload.data, payload.result].filter((value): value is Record<string, unknown> => !!value && typeof value === 'object');
+  for (const value of nested) {
+    for (const key of keys) {
+      const text = value[key];
+      if (typeof text === 'string' && text.trim()) return text.trim().substring(0, 200);
+    }
+  }
+  return '';
+}
+
+function readDimensions(payload: Record<string, unknown>, score: number): ScoreResult['dimensions'] {
+  const fallback = Math.round(score / 5);
+  const nested = [payload, payload.data, payload.result].filter((value): value is Record<string, unknown> => !!value && typeof value === 'object');
+  const raw = nested.map(value => value.dimensions ?? value['评分维度']).find((value): value is Record<string, unknown> => !!value && typeof value === 'object');
+  const value = (key: string) => {
+    const numeric = Number(raw?.[key]);
+    return Number.isFinite(numeric) ? Math.max(0, Math.min(20, Math.round(numeric))) : fallback;
+  };
+  return { frontier: value('frontier'), industry_model: value('industry_model'), regulatory: value('regulatory'), dispute: value('dispute'), normative: value('normative') };
+}
+
 async function scoreWithDeepSeek(article: Article): Promise<ScoreResult | null> {
   const contentSnippet = (article.content || '').substring(0, 1000);
   const prompt = `请对以下保理/供应链金融文章评分(0-100)、生成一句话中文摘要(不超过80字)，并给出一句话选稿理由(中文，不超过80字)说明该文章为何值得入选。
@@ -58,7 +106,9 @@ async function scoreWithDeepSeek(article: Article): Promise<ScoreResult | null> 
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },
         temperature: 0.3,
-        max_tokens: 500,
+        // step-3.7-flash emits a private reasoning trace before JSON; 500 tokens
+        // truncates that trace and leaves message.content empty (finish=length).
+        max_tokens: 4096,
       }),
       signal: AbortSignal.timeout(30000),
     });
@@ -70,28 +120,30 @@ async function scoreWithDeepSeek(article: Article): Promise<ScoreResult | null> 
     }
 
     const data = await response.json() as {
-      choices: Array<{ message: { content: string } }>;
+      choices: Array<{ finish_reason?: string; message: { content?: string; reasoning_content?: string } }>;
     };
-    const raw = data.choices?.[0]?.message?.content || '{}';
-    const result = JSON.parse(raw);
-
-    const score = typeof result.score === 'number' ? result.score : null;
+    const choice = data.choices?.[0];
+    const raw = choice?.message?.content?.trim() || '';
+    if (!raw) {
+      console.log(`  Empty model content (finish=${choice?.finish_reason ?? 'unknown'}, reasoning=${choice?.message?.reasoning_content?.length ?? 0})`);
+      return null;
+    }
+    const result = parseScorePayload(raw);
+    if (!result) {
+      console.log(`  Invalid JSON response: ${raw.slice(0, 160).replace(/\s+/g, ' ')}`);
+      return null;
+    }
+    const score = readScore(result);
     if (score === null || score < 0 || score > 100) {
-      console.log(`  Invalid score returned: ${result.score}`);
+      console.log(`  Invalid score payload: ${JSON.stringify(result).slice(0, 160)}`);
       return null;
     }
 
     return {
       score,
-      dimensions: result.dimensions || {
-        frontier: Math.round(score / 5),
-        industry_model: Math.round(score / 5),
-        regulatory: Math.round(score / 5),
-        dispute: Math.round(score / 5),
-        normative: Math.round(score / 5),
-      },
-      excerpt: (result.excerpt || '').substring(0, 200),
-      reason: (result.reason || '').substring(0, 200),
+      dimensions: readDimensions(result, score),
+      excerpt: readText(result, ['excerpt', '摘要']),
+      reason: readText(result, ['reason', '选稿理由', '推荐理由']),
     };
   } catch (error) {
     const msg = (error as Error).message;
@@ -114,7 +166,7 @@ export async function runScore() {
     .from('articles')
     .select('id, title, content, score')
     .or('and(scoring_method.is.null,or(pre_filtered.is.null,pre_filtered.eq.true)),and(scoring_method.eq.rule,or(pre_filtered.is.null,pre_filtered.eq.true))')
-    .limit(200);
+    .limit(Math.min(Math.max(Number(process.env.SCORE_LIMIT) || 200, 1), 200));
 
   if (error || !articles) {
     console.error('Failed to fetch articles:', error);
@@ -126,17 +178,17 @@ export async function runScore() {
   let scored = 0;
   let failed = 0;
   let skipped = 0;
+  const concurrency = Math.min(Math.max(Number(process.env.SCORE_CONCURRENCY) || 4, 1), 8);
 
-  for (let i = 0; i < articles.length; i++) {
-    const article = articles[i] as Article;
-    const progress = `[${i + 1}/${articles.length}]`;
+  const processArticle = async (article: Article, index: number) => {
+    const progress = `[${index + 1}/${articles.length}]`;
     console.log(`${progress} ${article.title.substring(0, 50)}...`);
 
     // Skip articles with no content at all
     if (!article.content || article.content.length < 10) {
       console.log(`  ⊘ Skipped (no content)\n`);
       skipped++;
-      continue;
+      return;
     }
 
     const result = await scoreWithDeepSeek(article);
@@ -181,23 +233,32 @@ export async function runScore() {
         console.log('');
       }
     }
+  };
 
-    // 500ms delay between API calls
-    if (i < articles.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 500));
+  let nextIndex = 0;
+  await Promise.all(Array.from({ length: Math.min(concurrency, articles.length) }, async () => {
+    while (nextIndex < articles.length) {
+      const index = nextIndex++;
+      await processArticle(articles[index] as Article, index);
     }
-  }
+  }));
 
   console.log(`\n✅ LLM scoring complete!`);
   console.log(`   Scored:  ${scored}`);
   console.log(`   Failed:  ${failed}`);
   console.log(`   Skipped: ${skipped}`);
   console.log(`   Total:   ${articles.length}`);
+  if (articles.length > 0 && scored === 0 && failed > 0) {
+    throw new Error('All LLM scoring requests failed; refusing to mark the pipeline successful.');
+  }
   return { scored, failed, skipped, total: articles.length };
 }
 
 const isMain = typeof process !== 'undefined' &&
   process.argv[1] && /llm-score/.test(process.argv[1]);
 if (isMain) {
-  runScore().catch(console.error);
+  runScore().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }

@@ -57,7 +57,11 @@ function groupByDate(articles: Article[]) {
 export default function HomeClient({ initialArticles }: { initialArticles: Article[] }) {
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const focus = useMemo(() => [...initialArticles].sort((a, b) => (b.score || 0) - (a.score || 0))[0], [initialArticles]);
+  const focus = useMemo(() => {
+    const today = beijingDateKey(new Date().toISOString());
+    const todayArticles = initialArticles.filter(article => beijingDateKey(article.pub_date) === today);
+    return [...(todayArticles.length ? todayArticles : initialArticles)].sort((a, b) => (b.score || 0) - (a.score || 0))[0];
+  }, [initialArticles]);
   const filteredArticles = useMemo(() => initialArticles.filter(article => {
     if (selectedSection && article.category !== selectedSection) return false;
     if (!searchQuery.trim()) return true;

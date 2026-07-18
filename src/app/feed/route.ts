@@ -12,7 +12,7 @@ const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || '保理 HOT';
 /**
  * GET /feed.xml
  *
- * Main RSS feed — selected articles from the last 7 days, sorted by score.
+ * Main RSS feed — selected articles from the last 7 days, newest first.
  */
 export async function GET(request: NextRequest) {
   // Last 7 days
@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
     .eq('is_selected', true)
     .or('pre_filtered.is.null,pre_filtered.eq.true')
     .gte('pub_date', since.toISOString())
+    .order('pub_date', { ascending: false })
     .order('score', { ascending: false })
     .limit(50);
 

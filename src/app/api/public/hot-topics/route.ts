@@ -31,20 +31,32 @@ export async function GET(request: NextRequest) {
   sinceDate.setDate(sinceDate.getDate() - days);
   const sinceDateStr = sinceDate.toISOString().split('T')[0];
 
-  // Fetch clusters within the time window, ordered by source_count then max_score
-  const { data: clusters, error } = await adminClient
+  // cluster_date is the clustering job date, not the article publication date.
+  // Query primary articles too so this endpoint never labels old content as hot.
+  const { data: rawClusters, error } = await adminClient
     .from('topic_clusters')
     .select('*')
     .gte('cluster_date', sinceDateStr)
     .order('source_count', { ascending: false })
     .order('max_score', { ascending: false })
-    .limit(take);
+    .limit(take * 3);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const hotTopics = (clusters || []).map((c: any) => ({
+  const primaryIds = (rawClusters || []).map((cluster: any) => cluster.primary_article_id);
+  const { data: primaryArticles, error: primaryError } = primaryIds.length
+    ? await adminClient.from('articles').select('id, pub_date').in('id', primaryIds).gte('pub_date', sinceDate.toISOString()).or('pre_filtered.is.null,pre_filtered.eq.true')
+    : { data: [], error: null };
+
+  if (primaryError) return NextResponse.json({ error: primaryError.message }, { status: 500 });
+
+  const primaryDates = new Map((primaryArticles || []).map((article: any) => [article.id, article.pub_date]));
+  const hotTopics = (rawClusters || [])
+    .filter((c: any) => c.source_count >= 2 && primaryDates.has(c.primary_article_id))
+    .slice(0, take)
+    .map((c: any) => ({
     id: c.id,
     title: c.primary_title,
     summary: c.primary_excerpt || null,
@@ -54,7 +66,8 @@ export async function GET(request: NextRequest) {
     sourceNames: c.unique_sources || [],
     maxScore: c.max_score || 0,
     avgScore: c.avg_score || 0,
-    clusterDate: c.cluster_date,
+    // Preserve the response property for compatibility, but make it truthful.
+    clusterDate: primaryDates.get(c.primary_article_id),
   }));
 
   const body = {

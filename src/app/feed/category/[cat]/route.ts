@@ -46,6 +46,7 @@ export async function GET(
     .eq('is_selected', true)
     .or('pre_filtered.is.null,pre_filtered.eq.true')
     .gte('pub_date', since.toISOString())
+    .order('pub_date', { ascending: false })
     .order('score', { ascending: false })
     .limit(30);
 

@@ -41,14 +41,21 @@ interface RelatedArticle {
   score: number | null;
 }
 
+interface PrimaryArticle {
+  id: string;
+  pub_date: string;
+}
+
 export const dynamic = 'force-dynamic';
 
 export default async function TopicsPage() {
-  // Fetch clusters from last 14 days, sorted by source_count then max_score
-  const { data: clusters, error } = await supabase
+  // Cluster jobs run daily, so cluster_date is not the article date. Verify the
+  // primary article itself is recent before showing a topic as "hot".
+  const cutoff = new Date(Date.now() - 14 * 86400000).toISOString();
+  const { data: rawClusters, error } = await supabase
     .from('topic_clusters')
     .select('*')
-    .gte('cluster_date', new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0])
+    .gte('cluster_date', cutoff.slice(0, 10))
     .order('source_count', { ascending: false })
     .order('max_score', { ascending: false })
     .limit(30);
@@ -58,10 +65,20 @@ export default async function TopicsPage() {
     relatedArticles: RelatedArticle[];
   }> = [];
 
+  const clusters = rawClusters as ClusterRecord[] | null;
+  const primaryDates = new Map<string, string>();
   if (clusters && clusters.length > 0) {
+    const { data: primaryRows } = await supabase
+      .from('articles')
+      .select('id, pub_date')
+      .in('id', clusters.map(cluster => cluster.primary_article_id))
+      .gte('pub_date', cutoff)
+      .or('pre_filtered.is.null,pre_filtered.eq.true');
+    (primaryRows as PrimaryArticle[] | null)?.forEach(article => primaryDates.set(article.id, article.pub_date));
+
     // Only fetch related articles for clusters that have them
     hotTopics = await Promise.all(
-      clusters.map(async (cluster: ClusterRecord) => {
+      clusters.filter(cluster => primaryDates.has(cluster.primary_article_id)).map(async (cluster) => {
         let relatedArticles: RelatedArticle[] = [];
 
         if (cluster.related_article_ids && cluster.related_article_ids.length > 0) {
@@ -81,10 +98,9 @@ export default async function TopicsPage() {
       })
     );
 
-    // Filter out single-article "clusters" with no real multi-source coverage
-    // but keep them if source_count >= 2
+    // "热门话题"必须有真实的多信源覆盖，不将单篇文章伪装成热点。
     hotTopics = hotTopics.filter(
-      ({ cluster }) => cluster.source_count >= 2 || cluster.related_count >= 1
+      ({ cluster }) => cluster.source_count >= 2
     );
   }
 
@@ -176,7 +192,7 @@ export default async function TopicsPage() {
 
                         {/* Date */}
                         <span className="text-gray-400">
-                          {formatDate(cluster.cluster_date)}
+                          {formatDate(primaryDates.get(cluster.primary_article_id)!)}
                         </span>
                       </div>
 
