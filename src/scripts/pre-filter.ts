@@ -5,6 +5,7 @@
  * 设计原则（对齐 AIHOT）：能用代码处理的，一律不用模型
  */
 import { createClient } from '@supabase/supabase-js';
+import { keepProcessAlive } from '../lib/keep-process-alive';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -318,5 +319,8 @@ export async function runPreFilter() {
 const isMain = typeof process !== 'undefined' &&
   process.argv[1] && /pre-filter/.test(process.argv[1]);
 if (isMain) {
-  runPreFilter().catch(console.error);
+  keepProcessAlive(runPreFilter()).catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }

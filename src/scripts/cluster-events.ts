@@ -3,6 +3,7 @@
  * 原则：能用代码处理的，一律不用模型处理
  */
 import { createClient } from '@supabase/supabase-js';
+import { keepProcessAlive } from '../lib/keep-process-alive';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -188,5 +189,8 @@ export async function runClustering() {
 const isMain = typeof process !== 'undefined' &&
   process.argv[1] && /cluster-events/.test(process.argv[1]);
 if (isMain) {
-  runClustering().catch(console.error);
+  keepProcessAlive(runClustering()).catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }

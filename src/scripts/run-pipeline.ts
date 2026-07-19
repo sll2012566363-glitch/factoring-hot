@@ -4,6 +4,7 @@
  */
 import { spawn } from 'child_process';
 import path from 'path';
+import { keepProcessAlive } from '../lib/keep-process-alive';
 
 const SCRIPTS_DIR = path.dirname(new URL(import.meta.url).pathname);
 const ROOT_DIR = path.resolve(SCRIPTS_DIR, '..', '..');
@@ -115,7 +116,7 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+keepProcessAlive(main()).catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

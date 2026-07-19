@@ -5,6 +5,7 @@ import * as cheerio from 'cheerio';
 import { classifyArticle } from '../lib/classifier';
 import { isRelevant } from '../lib/relevance';
 import { sanitizePubDate, nowToMinute } from '../lib/date-utils';
+import { keepProcessAlive } from '../lib/keep-process-alive';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -389,9 +390,9 @@ export async function runFetch() {
       : { last_fetch_status: outcome, last_fetch_error: (message || 'Unknown fetch error').substring(0, 500), last_fetch_article_count: fetched, last_fetch_new_article_count: inserted, consecutive_failures: (source as any).consecutive_failures ? (source as any).consecutive_failures + 1 : 1 };
     if (extendedHealthColumnsAvailable === false) return;
     const { error: healthError } = await supabase.from('sources').update(payload).eq('id', source.id);
-    if (healthError && /column .* does not exist/i.test(healthError.message)) {
+    if (healthError && /(column .* does not exist|could not find the .* column)/i.test(healthError.message)) {
       extendedHealthColumnsAvailable = false;
-      console.warn('  ⚠ Source-health migration has not been applied; only last_fetched_at is being recorded.');
+      console.warn('  ⚠ Source-health migration has not been applied; only last_fetched_at is being recorded for this run.');
     } else if (healthError) {
       console.warn(`  ⚠ Health telemetry failed for ${source.name}: ${healthError.message}`);
     } else {
@@ -472,5 +473,8 @@ export async function runFetch() {
 const isMain = typeof process !== 'undefined' &&
   process.argv[1] && /fetch-sources/.test(process.argv[1]);
 if (isMain) {
-  runFetch().catch(console.error);
+  keepProcessAlive(runFetch()).catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }

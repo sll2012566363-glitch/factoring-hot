@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { fetch as undiciFetch } from 'undici';
 import * as cheerio from 'cheerio';
 import { extractContentHtml, extractPlainText, extractMetaDescription } from '../lib/extract-content';
+import { keepProcessAlive } from '../lib/keep-process-alive';
 import { fetchSourceBody } from '../lib/fetch-source-body';
 
 const supabase = createClient(
@@ -271,5 +272,8 @@ export async function runEnrich() {
 const isMain = typeof process !== 'undefined' &&
   process.argv[1] && /enrich-articles/.test(process.argv[1]);
 if (isMain) {
-  runEnrich().catch(console.error);
+  keepProcessAlive(runEnrich()).catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }
