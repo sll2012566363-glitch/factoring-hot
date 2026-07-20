@@ -14,6 +14,8 @@ const supabase = createClient(
 
 const parser = new Parser();
 let extendedHealthColumnsAvailable: boolean | null = null;
+const SOURCE_PAGE_TIMEOUT_MS = 8_000;
+const MAX_AMBIGUOUS_CANDIDATES_PER_SOURCE = 5;
 
 interface Source {
   id: string;
@@ -133,7 +135,7 @@ async function fetchDahecube(source: Source): Promise<Article[]> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ channelid: 1, pno: 1, psize: 20 }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(SOURCE_PAGE_TIMEOUT_MS),
     });
     const data = await response.json() as any;
     if (data.code === 0 && data.data?.items) {
@@ -174,7 +176,7 @@ async function fetch36kr(source: Source): Promise<Article[]> {
         timestamp: '',
         param: { siteId: 1, pageSize: 50, platformId: 1 },
       }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(SOURCE_PAGE_TIMEOUT_MS),
     });
     const data = await response.json() as any;
     if (data.code === 0 && data.data?.hotRankList) {
@@ -351,7 +353,7 @@ async function fetchHtmlContent(source: Source): Promise<Article[]> {
         'Accept': 'text/html,application/xhtml+xml',
         'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
       },
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(SOURCE_PAGE_TIMEOUT_MS),
     });
     const html = await response.text();
     const $ = cheerio.load(html);
@@ -441,7 +443,8 @@ export async function runFetch() {
       const keepAsCandidate = !rel.relevant
         && rel.method === 'skipped'
         && !rel.reason
-        && isRecentCandidate(a.pub_date);
+        && isRecentCandidate(a.pub_date)
+        && candidateCount < MAX_AMBIGUOUS_CANDIDATES_PER_SOURCE;
       if (!rel.relevant && !keepAsCandidate) {
         console.log(`  ⏩ 跳过不相关: ${a.title.slice(0, 40)}`);
         continue;
