@@ -68,6 +68,13 @@ function extractDate($: cheerio.CheerioAPI, el: any): Date {
   return nowToMinute();
 }
 
+function isRecentCandidate(date: Date): boolean {
+  const timestamp = date.getTime();
+  if (!Number.isFinite(timestamp)) return false;
+  const ageDays = (Date.now() - timestamp) / 86_400_000;
+  return ageDays >= -1 && ageDays <= 7;
+}
+
 async function fetchRSS(source: Source): Promise<Article[]> {
   if (!source.rss) {
     return [];
@@ -425,10 +432,23 @@ export async function runFetch() {
       }))
     );
     const passed: Article[] = [];
+    let candidateCount = 0;
     for (const { article: a, rel } of relevanceResults) {
-      if (!rel.relevant) {
+      // Ambiguous recent items must reach the batch LLM pre-filter. The old
+      // code discarded them here, so a generic news source could never yield
+      // a newly published factoring/SCF article unless its title contained a
+      // strong keyword. Explicit site noise and ads remain blocked.
+      const keepAsCandidate = !rel.relevant
+        && rel.method === 'skipped'
+        && !rel.reason
+        && isRecentCandidate(a.pub_date);
+      if (!rel.relevant && !keepAsCandidate) {
         console.log(`  ⏩ 跳过不相关: ${a.title.slice(0, 40)}`);
         continue;
+      }
+      if (keepAsCandidate) {
+        candidateCount++;
+        console.log(`  🔎 候选待预筛: ${a.title.slice(0, 40)}`);
       }
       const safe = sanitizePubDate(a.pub_date);
       // pub_date 列有 NOT NULL 约束：未来/非法日期统一回退为“实时当前时间（精确到分钟）”
@@ -450,6 +470,7 @@ export async function runFetch() {
         if (fetchedCount > 0) sourcesWithArticles++;
       }
 
+      console.log(`  ↳ ${source.name}: 抓取 ${fetchedCount}，通过/候选 ${articles.length}（候选 ${candidateCount}），新增 ${insertedCount}`);
       await recordHealth(source, 'success', fetchedCount, insertedCount);
     } catch (err) {
       failedSources++;
