@@ -45,7 +45,7 @@ export async function GET(
     .select('*')
     .eq('category', cat)
     .eq('is_selected', true)
-    .or('pre_filtered.is.null,pre_filtered.eq.true')
+    .eq('pre_filtered', true)
     .gte('pub_date', since.toISOString())
     .order('pub_date', { ascending: false })
     .order('score', { ascending: false })

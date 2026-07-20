@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     .from('articles')
     .select('*')
     .eq('is_selected', true)
-    .or('pre_filtered.is.null,pre_filtered.eq.true')
+    .eq('pre_filtered', true)
     .gte('pub_date', since.toISOString())
     .order('pub_date', { ascending: false })
     .order('score', { ascending: false })

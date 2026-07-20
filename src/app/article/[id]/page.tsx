@@ -100,7 +100,7 @@ const getArticle = cache(async (id: string) => {
     .from('articles')
     .select('*')
     .eq('id', id)
-    .or('pre_filtered.is.null,pre_filtered.eq.true')
+    .eq('pre_filtered', true)
     .single();
   return error ? null : data;
 });

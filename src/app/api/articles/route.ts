@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     )
     // pre-filter.ts（hourly pipeline 2/5步）判不相关的文章排除展示——
     // 之前这个字段判了但没人读，白判了
-    .or('pre_filtered.is.null,pre_filtered.eq.true')
+    .eq('pre_filtered', true)
     // 全部动态是实时资料库，发布时间应优先于评分。
     .order('pub_date', { ascending: false })
     .order('score', { ascending: false })

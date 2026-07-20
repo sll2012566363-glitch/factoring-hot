@@ -17,7 +17,7 @@ export async function GET(
     .from('articles')
     .select('id, title, link, excerpt, content, content_html, cover_image, source_name, category, score, score_dimensions, pub_date, ai_reason, scoring_method, event_id, event_title, created_at')
     .eq('id', id)
-    .or('pre_filtered.is.null,pre_filtered.eq.true')
+    .eq('pre_filtered', true)
     .single();
   
   if (error || !article) {
