@@ -577,6 +577,58 @@
       "rss": null,
       "selector": ".listBox li a",
       "active": false
+    },
+    {
+      "id": "cfec",
+      "name": "中国服务贸易协会商业保理专业委员会",
+      "url": "https://www.cfiservice.com/page.php?cid=20",
+      "type": "association",
+      "category": "innovation",
+      "priority": "T1",
+      "weight": 1.35,
+      "rss": null,
+      "selector": "a",
+      "active": true,
+      "note": "全国性商业保理行业专委会；只保留行业动态、政策法规、业务研究，培训/招商由筛选器拦截"
+    },
+    {
+      "id": "clba",
+      "name": "中国外商投资企业协会租赁业工作委员会",
+      "url": "https://clba.org.cn/gzdt",
+      "type": "association",
+      "category": "market",
+      "priority": "T1.5",
+      "weight": 1.15,
+      "rss": null,
+      "selector": "a",
+      "active": true,
+      "note": "融资租赁补充信源；重点抓行业新闻、行业数据、监管与业务研究"
+    },
+    {
+      "id": "szfla",
+      "name": "深圳市融资租赁行业协会",
+      "url": "https://www.szfla.org/",
+      "type": "association",
+      "category": "market",
+      "priority": "T1.5",
+      "weight": 1.1,
+      "rss": null,
+      "selector": "a",
+      "active": true,
+      "note": "融资租赁行业新闻与风险/数据栏目；党建、培训、会员宣传由筛选器拦截"
+    },
+    {
+      "id": "wuhan-finance",
+      "name": "武汉市地方金融管理局",
+      "url": "https://jrj.wuhan.gov.cn/ynzx_57/whjrdt/",
+      "type": "government",
+      "category": "policy",
+      "priority": "T1.5",
+      "weight": 1.1,
+      "rss": null,
+      "selector": "a",
+      "active": true,
+      "note": "融资租赁与商业保理监管名单、政策和产融结合动态"
     }
   ]
 }

@@ -11,8 +11,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-async function getArticles(): Promise<{ full: Article[]; sourceOnly: Article[] }> {
-  const { data, error } = await supabase
+async function getArticles(): Promise<{ full: Article[]; sourceOnly: Article[]; lastFetchedAt: string | null }> {
+  const [{ data, error }, { data: sources }] = await Promise.all([
+    supabase
     .from('articles')
     .select(
       'id, title, link, excerpt, content, content_html, source_name, category, score, pub_date, ai_reason, scoring_method, cover_image'
@@ -23,19 +24,21 @@ async function getArticles(): Promise<{ full: Article[]; sourceOnly: Article[] }
     // 时效优先：未完成 AI 评分的新文章也必须先出现在信息流中。
     .order('pub_date', { ascending: false })
     .order('score', { ascending: false })
-    .limit(500);
+    .limit(500),
+    supabase.from('sources').select('last_fetched_at').eq('active', true).not('last_fetched_at', 'is', null).order('last_fetched_at', { ascending: false }).limit(1),
+  ]);
 
-  if (error || !data) return { full: [], sourceOnly: [] };
+  if (error || !data) return { full: [], sourceOnly: [], lastFetchedAt: sources?.[0]?.last_fetched_at || null };
   const partitioned = partitionByContentQuality(data as Article[]);
   const slim = (items: Article[]) => items.map((a) => ({
     ...a,
     content: a.content ? a.content.substring(0, 300) : a.content,
     content_html: undefined,
   })) as Article[];
-  return { full: slim(partitioned.full), sourceOnly: slim(partitioned.sourceOnly) };
+  return { full: slim(partitioned.full), sourceOnly: slim(partitioned.sourceOnly), lastFetchedAt: sources?.[0]?.last_fetched_at || null };
 }
 
 export default async function Home() {
-  const { full, sourceOnly } = await getArticles();
-  return <HomeClient initialArticles={full} sourceBriefs={sourceOnly.slice(0, 12)} />;
+  const { full, sourceOnly, lastFetchedAt } = await getArticles();
+  return <HomeClient initialArticles={full} sourceBriefs={sourceOnly.slice(0, 12)} lastFetchedAt={lastFetchedAt} />;
 }
