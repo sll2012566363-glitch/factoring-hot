@@ -21,8 +21,7 @@ export async function GET(request: NextRequest) {
     .from('articles')
     .select('*')
     .eq('pre_filtered', true)
-    .eq('status', 'selected')
-    .eq('is_selected', true)
+    .in('status', ['selected', 'pending'])
     .gte('pub_date', since.toISOString())
     .order('pub_date', { ascending: false })
     .limit(100);

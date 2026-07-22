@@ -214,8 +214,8 @@ export async function runScore() {
         score_dimensions: result.dimensions,
         scoring_method: 'llm',
         scored_at: new Date().toISOString(),
-        status: result.score >= 55 ? 'selected' : 'rejected',
-        is_selected: result.score >= 55,
+        status: result.score >= 40 ? 'selected' : 'rejected',
+        is_selected: result.score >= 40,
       };
 
       if (result.excerpt) {

@@ -101,8 +101,7 @@ const getArticle = cache(async (id: string) => {
     .select('*')
     .eq('id', id)
     .eq('pre_filtered', true)
-    .eq('status', 'selected')
-    .eq('is_selected', true)
+    .in('status', ['selected', 'pending'])
     .single();
   return error ? null : data;
 });

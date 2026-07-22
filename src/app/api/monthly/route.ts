@@ -72,8 +72,7 @@ export async function POST(request: NextRequest) {
     .lt('pub_date', `${endDate.toISOString().split('T')[0]}T00:00:00+08:00`)
     .not('score', 'is', null)
     .eq('pre_filtered', true)
-    .eq('status', 'selected')
-    .eq('is_selected', true)
+    .in('status', ['selected', 'pending'])
     .order('score', { ascending: false });
 
   if (error || !articles) {

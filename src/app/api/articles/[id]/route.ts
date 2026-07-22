@@ -18,8 +18,7 @@ export async function GET(
     .select('id, title, link, excerpt, content, content_html, cover_image, source_name, category, score, score_dimensions, pub_date, ai_reason, scoring_method, event_id, event_title, created_at')
     .eq('id', id)
     .eq('pre_filtered', true)
-    .eq('status', 'selected')
-    .eq('is_selected', true)
+    .in('status', ['selected', 'pending'])
     .single();
   
   if (error || !article) {

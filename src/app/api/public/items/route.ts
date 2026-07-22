@@ -80,8 +80,7 @@ export async function GET(request: NextRequest) {
     .select('id, title, link, excerpt, content, content_html, source_name, source_id, category, priority, score, score_dimensions, scoring_method, is_selected, event_id, event_title, pub_date, created_at', { count: 'exact' })
     // pre-filter.ts 判不相关的文章排除展示
     .eq('pre_filtered', true)
-    .eq('status', 'selected')
-    .eq('is_selected', true)
+    .in('status', ['selected', 'pending'])
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(take + 1); // fetch one extra to detect if there's a next page
