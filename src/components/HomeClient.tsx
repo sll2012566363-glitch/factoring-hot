@@ -66,7 +66,7 @@ export default function HomeClient({ initialArticles, sourceBriefs, lastFetchedA
     if (selectedSection && article.category !== selectedSection) return false;
     if (!searchQuery.trim()) return true;
     const q = searchQuery.trim().toLowerCase();
-    return article.title?.toLowerCase().includes(q) || article.excerpt?.toLowerCase().includes(q) || article.source_name?.toLowerCase().includes(q);
+    return article.title?.toLowerCase().includes(q) || article.excerpt?.toLowerCase().includes(q) || article.content?.toLowerCase().includes(q) || article.source_name?.toLowerCase().includes(q);
   }), [initialArticles, selectedSection, searchQuery]);
   const dateGroups = useMemo(() => groupByDate(filteredArticles), [filteredArticles]);
 

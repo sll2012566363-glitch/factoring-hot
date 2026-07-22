@@ -24,6 +24,16 @@ const STRONG_KEYWORDS = [
   '直租', '金租',
 ];
 
+// 核心主题词：决定文章是否真正落在本站业务范围内。
+// 泛“供应链/金融/应收账款/票据”不单独作为主题依据。
+export const CORE_TOPIC_KEYWORDS = [
+  '商业保理', '银行保理', '保理公司', '保理业务', '保理合同', '保理融资',
+  '保理纠纷', '明保理', '暗保理', '反向保理', '再保理', '有追索权保理', '无追索权保理',
+  '供应链金融', '供应链融资', '供应链ABS', '保理ABS', '应收账款融资', '应收账款转让',
+  '应收账款质押', '供应链票据', '动产融资统一登记', '中登网',
+  '融资租赁', '金融租赁', '售后回租', '租赁物', '租赁资产', '租赁业务', '设备融资',
+];
+
 // ---- 弱相关关键词（太泛，单独命中不算，权重 1，需 LLM 复核）----
 // 应收账款/核心企业/应付账款/债权转让/应收债权：财经媒体的 IPO/年报/
 // 立案调查/监管问询类文章几乎必提这些通用会计/法律术语（任何公司财报
@@ -167,11 +177,17 @@ export async function isRelevant(
     return { relevant: false, method: 'skipped', score: 0, reason: 'training_ad' };
   }
 
-  if (opts?.sourceId && FACTORING_SOURCE_WHITELIST.has(opts.sourceId)) {
-    return { relevant: true, method: 'skipped', score: 0, reason: 'source_whitelist' };
+  const text = `${title}\n${stripHtml(content || '')}`;
+  const hasCoreTopic = CORE_TOPIC_KEYWORDS.some(k => text.includes(k));
+
+  // 白名单只代表信源可靠，不代表每篇标题都相关；先过核心主题词。
+  if (opts?.sourceId && FACTORING_SOURCE_WHITELIST.has(opts.sourceId) && hasCoreTopic) {
+    return { relevant: true, method: 'keyword', score: 2, reason: 'source_whitelist_core_keyword' };
+  }
+  if (!hasCoreTopic) {
+    return { relevant: false, method: 'skipped', score: 0, reason: 'missing_core_topic_keyword' };
   }
 
-  const text = `${title}\n${stripHtml(content || '')}`;
   const score = keywordScore(text);
 
   if (score >= 2) {
