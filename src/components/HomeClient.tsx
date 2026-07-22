@@ -6,7 +6,6 @@ import { useMemo, useState } from 'react';
 import AppShell from '@/components/AppShell';
 import DateGroup from '@/components/DateGroup';
 import { Article } from '@/types';
-import { getTopicArea, TopicArea } from '@/lib/topic-area';
 
 const sections = [
   { id: 'frontier', name: '深度解读' },
@@ -57,7 +56,6 @@ function groupByDate(articles: Article[]) {
 
 export default function HomeClient({ initialArticles, sourceBriefs, lastFetchedAt }: { initialArticles: Article[]; sourceBriefs: Article[]; lastFetchedAt: string | null }) {
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
-  const [selectedArea, setSelectedArea] = useState<TopicArea | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const focus = useMemo(() => {
     const today = beijingDateKey(new Date().toISOString());
@@ -66,11 +64,10 @@ export default function HomeClient({ initialArticles, sourceBriefs, lastFetchedA
   }, [initialArticles]);
   const filteredArticles = useMemo(() => initialArticles.filter(article => {
     if (selectedSection && article.category !== selectedSection) return false;
-    if (selectedArea && getTopicArea(article) !== selectedArea) return false;
     if (!searchQuery.trim()) return true;
     const q = searchQuery.trim().toLowerCase();
     return article.title?.toLowerCase().includes(q) || article.excerpt?.toLowerCase().includes(q) || article.source_name?.toLowerCase().includes(q);
-  }), [initialArticles, selectedSection, selectedArea, searchQuery]);
+  }), [initialArticles, selectedSection, searchQuery]);
   const dateGroups = useMemo(() => groupByDate(filteredArticles), [filteredArticles]);
 
   const rail = (
@@ -112,12 +109,6 @@ export default function HomeClient({ initialArticles, sourceBriefs, lastFetchedA
         <div className="feed-tabs">
           <button onClick={() => setSelectedSection(null)} className={`feed-tab ${selectedSection === null ? 'active' : ''}`}>全部</button>
           {sections.map(section => <button key={section.id} onClick={() => setSelectedSection(section.id)} className={`feed-tab ${selectedSection === section.id ? 'active' : ''}`}>{section.name}</button>)}
-        </div>
-        <div className="feed-tabs area-tabs" aria-label="业务领域">
-          <button onClick={() => setSelectedArea(null)} className={`feed-tab ${selectedArea === null ? 'active' : ''}`}>业务领域</button>
-          <button onClick={() => setSelectedArea('factoring')} className={`feed-tab ${selectedArea === 'factoring' ? 'active' : ''}`}>商业保理</button>
-          <button onClick={() => setSelectedArea('supply_chain')} className={`feed-tab ${selectedArea === 'supply_chain' ? 'active' : ''}`}>供应链金融</button>
-          <button onClick={() => setSelectedArea('leasing')} className={`feed-tab ${selectedArea === 'leasing' ? 'active' : ''}`}>融资租赁</button>
         </div>
         <label className="feed-search"><Search size={14} /><input value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="搜索标题、来源…" /></label>
       </section>

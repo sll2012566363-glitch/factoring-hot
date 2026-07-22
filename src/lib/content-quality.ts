@@ -10,9 +10,9 @@ export interface ContentQuality {
 
 // 前台展示采用宽松门槛：抓到正文或较完整摘要即可进入信息流。
 // 原文链接仍作为兜底，避免因页面结构差异导致整站无内容。
-export const FULL_TEXT_MIN_LENGTH = 80;
+export const FULL_TEXT_MIN_LENGTH = 40;
 export const FULL_HTML_MIN_LENGTH = 0;
-export const FULL_PARAGRAPH_MIN_COUNT = 1;
+export const FULL_PARAGRAPH_MIN_COUNT = 0;
 
 function plainText(value?: string | null): string {
   return (value || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
