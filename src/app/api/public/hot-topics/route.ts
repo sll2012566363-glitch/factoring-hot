@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 
   const primaryIds = (rawClusters || []).map((cluster: any) => cluster.primary_article_id);
   const { data: primaryArticles, error: primaryError } = primaryIds.length
-    ? await adminClient.from('articles').select('id, pub_date').in('id', primaryIds).gte('pub_date', sinceDate.toISOString()).eq('pre_filtered', true)
+    ? await adminClient.from('articles').select('id, pub_date').in('id', primaryIds).gte('pub_date', sinceDate.toISOString()).eq('pre_filtered', true).eq('status', 'selected').eq('is_selected', true)
     : { data: [], error: null };
 
   if (primaryError) return NextResponse.json({ error: primaryError.message }, { status: 500 });

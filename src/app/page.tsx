@@ -21,7 +21,9 @@ async function getArticles(): Promise<{ full: Article[]; sourceOnly: Article[]; 
     // pre-filter.ts（hourly pipeline 2/5步）判不相关的文章排除展示——
     // 之前这个字段判了但没人读，白判了
     .eq('pre_filtered', true)
-    // 时效优先：未完成 AI 评分的新文章也必须先出现在信息流中。
+    .eq('status', 'selected')
+    .eq('is_selected', true)
+    // 只有完成最终评分并入选的文章进入前台；候选文章留在后台处理。
     .order('pub_date', { ascending: false })
     .order('score', { ascending: false })
     .limit(500),

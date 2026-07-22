@@ -76,7 +76,9 @@ export default async function TopicsPage() {
       .select('id, pub_date')
       .in('id', clusters.map(cluster => cluster.primary_article_id))
       .gte('pub_date', cutoff)
-      .eq('pre_filtered', true);
+      .eq('pre_filtered', true)
+      .eq('status', 'selected')
+      .eq('is_selected', true);
     (primaryRows as PrimaryArticle[] | null)?.forEach(article => primaryDates.set(article.id, article.pub_date));
 
     // Only fetch related articles for clusters that have them
