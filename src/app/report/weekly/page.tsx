@@ -64,7 +64,53 @@ export default function WeeklyReportPage() {
   }
 
   return (
-    <AppShell wide>
+    <AppShell
+      wide
+      railAfter={
+        <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.14em] text-sky-700">ARCHIVE</p>
+              <h2 className="mt-1 text-base font-semibold text-slate-900">往期周报</h2>
+            </div>
+            <select
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700"
+              value={currentYear}
+              onChange={(e) => {
+                setCurrentYear(Number(e.target.value));
+                setSelected(null);
+              }}
+            >
+              {[2024, 2025, 2026, 2027].map((y) => <option key={y} value={y}>{y} 年</option>)}
+            </select>
+          </div>
+
+          {loading ? (
+            <p className="py-5 text-center text-xs text-slate-400">加载中...</p>
+          ) : reports.length === 0 ? (
+            <p className="py-5 text-center text-xs text-slate-400">该年度暂无周报</p>
+          ) : (
+            <ul className="mt-4 max-h-72 divide-y divide-slate-100 overflow-y-auto">
+              {reports.map((r) => {
+                const isActive = selected?.id === r.id;
+                const rangeStr = r.report_date_range ? `${r.report_date_range.start || ''} ~ ${r.report_date_range.end || ''}` : '';
+                return (
+                  <li key={r.id}>
+                    <button
+                      onClick={() => loadDetail(r.year, r.week_number)}
+                      className={`w-full py-3 text-left transition ${isActive ? 'text-sky-700' : 'text-slate-700 hover:text-sky-700'}`}
+                    >
+                      <span className="flex items-center justify-between gap-3 text-sm font-medium"><span>第 {r.week_number} 周</span><span className="text-xs font-normal text-slate-400">{r.total_articles} 篇</span></span>
+                      {rangeStr && <span className="mt-1 block text-xs text-slate-400">{rangeStr}</span>}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      }
+    >
         <header className="page-intro">
           <p className="page-eyebrow">Weekly review</p>
           <h1 className="page-title">保理行业周度复盘</h1>
@@ -77,49 +123,6 @@ export default function WeeklyReportPage() {
           ) : (
             <PeriodReportView type="weekly" report={selected} />
           )}
-
-          <section className="mt-8 ml-auto w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold tracking-[0.14em] text-sky-700">ARCHIVE</p>
-                <h2 className="mt-1 text-base font-semibold text-slate-900">往期周报</h2>
-              </div>
-              <select
-                className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700"
-                value={currentYear}
-                onChange={(e) => {
-                  setCurrentYear(Number(e.target.value));
-                  setSelected(null);
-                }}
-              >
-                {[2024, 2025, 2026, 2027].map((y) => <option key={y} value={y}>{y} 年</option>)}
-              </select>
-            </div>
-
-            {loading ? (
-              <p className="py-5 text-center text-xs text-slate-400">加载中...</p>
-            ) : reports.length === 0 ? (
-              <p className="py-5 text-center text-xs text-slate-400">该年度暂无周报</p>
-            ) : (
-              <ul className="mt-4 max-h-72 divide-y divide-slate-100 overflow-y-auto">
-                {reports.map((r) => {
-                  const isActive = selected?.id === r.id;
-                  const rangeStr = r.report_date_range ? `${r.report_date_range.start || ''} ~ ${r.report_date_range.end || ''}` : '';
-                  return (
-                    <li key={r.id}>
-                      <button
-                        onClick={() => loadDetail(r.year, r.week_number)}
-                        className={`w-full py-3 text-left transition ${isActive ? 'text-sky-700' : 'text-slate-700 hover:text-sky-700'}`}
-                      >
-                        <span className="flex items-center justify-between gap-3 text-sm font-medium"><span>第 {r.week_number} 周</span><span className="text-xs font-normal text-slate-400">{r.total_articles} 篇</span></span>
-                        {rangeStr && <span className="mt-1 block text-xs text-slate-400">{rangeStr}</span>}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
         </div>
     </AppShell>
   );
