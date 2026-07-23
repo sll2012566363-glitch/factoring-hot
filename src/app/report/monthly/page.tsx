@@ -94,7 +94,35 @@ export default function MonthlyReportPage() {
   }
 
   return (
-    <AppShell wide>
+    <AppShell
+      wide
+      railAfter={
+        <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.14em] text-sky-700">ARCHIVE</p>
+              <h2 className="mt-1 text-base font-semibold text-slate-900">往期月报</h2>
+            </div>
+            <select
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700"
+              value={currentYear}
+              onChange={(e) => { setCurrentYear(Number(e.target.value)); setSelected(null); }}
+            >
+              {[2024, 2025, 2026, 2027].map((y) => <option key={y} value={y}>{y} 年</option>)}
+            </select>
+          </div>
+          {loading ? <p className="py-5 text-center text-xs text-slate-400">加载中...</p> : reports.length === 0 ? <p className="py-5 text-center text-xs text-slate-400">该年度暂无月报</p> : (
+            <ul className="mt-4 max-h-72 divide-y divide-slate-100 overflow-y-auto">
+              {reports.map((r) => {
+                const isActive = selected?.id === r.id;
+                const rangeStr = r.report_date_range ? `${r.report_date_range.start || ''} ~ ${r.report_date_range.end || ''}` : '';
+                return <li key={r.id}><button onClick={() => loadDetail(r.year, r.month)} className={`w-full py-3 text-left transition ${isActive ? 'text-sky-700' : 'text-slate-700 hover:text-sky-700'}`}><span className="flex items-center justify-between gap-3 text-sm font-medium"><span>{MONTH_NAMES[r.month] || `${r.month}月`}</span><span className="text-xs font-normal text-slate-400">{r.total_articles} 篇</span></span>{rangeStr && <span className="mt-1 block text-xs text-slate-400">{rangeStr}</span>}</button></li>;
+              })}
+            </ul>
+          )}
+        </section>
+      }
+    >
         <header className="page-intro flex items-end justify-between gap-4">
           <div>
             <p className="page-eyebrow">Monthly insight</p>
@@ -123,78 +151,12 @@ export default function MonthlyReportPage() {
           </div>
         </header>
 
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Sidebar */}
-          <aside className="lg:w-72 shrink-0">
-            <div className="surface p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-gray-800">月刊列表</h2>
-                <select
-                  className="text-xs border border-gray-200 rounded px-2 py-1"
-                  value={currentYear}
-                  onChange={(e) => {
-                    setCurrentYear(Number(e.target.value));
-                    setSelected(null);
-                  }}
-                >
-                  {[2024, 2025, 2026, 2027].map((y) => (
-                    <option key={y} value={y}>{y} 年</option>
-                  ))}
-                </select>
-              </div>
-
-              {loading ? (
-                <p className="text-xs text-gray-500 py-4 text-center">加载中...</p>
-              ) : reports.length === 0 ? (
-                <div className="py-6 text-center">
-                  <p className="text-xs text-gray-500 mb-2">该年度暂无月刊</p>
-                  <p className="text-xs text-blue-500">
-                    点击右上方「生成月刊」按钮创建
-                  </p>
-                </div>
-              ) : (
-                <ul className="space-y-1 max-h-96 overflow-y-auto">
-                  {reports.map((r) => {
-                    const isActive = selected?.id === r.id;
-                    const rangeStr = r.report_date_range
-                      ? `${r.report_date_range.start || ''} ~ ${r.report_date_range.end || ''}`
-                      : '';
-                    return (
-                      <li key={r.id}>
-                        <button
-                          onClick={() => loadDetail(r.year, r.month)}
-                          className={`w-full text-left p-2.5 rounded-md transition-colors ${
-                            isActive
-                              ? 'bg-blue-50 border border-blue-200'
-                              : 'hover:bg-gray-50 border border-transparent'
-                          }`}
-                        >
-                          <div className="text-sm font-medium text-gray-900">
-                            {MONTH_NAMES[r.month] || `${r.month}月`}
-                          </div>
-                          {rangeStr && (
-                            <div className="text-xs text-gray-500 mt-0.5">{rangeStr}</div>
-                          )}
-                          <div className="text-xs text-gray-400 mt-0.5">
-                            {r.total_articles} 篇文章
-                          </div>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          </aside>
-
-          {/* Main */}
-          <div className="flex-1 min-w-0">
+        <div className="min-w-0">
             {detailLoading ? (
               <div className="text-center py-12 text-gray-500">加载中...</div>
             ) : (
               <PeriodReportView type="monthly" report={selected} />
             )}
-          </div>
         </div>
     </AppShell>
   );
