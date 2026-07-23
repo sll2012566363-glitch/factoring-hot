@@ -6,6 +6,7 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import { keepProcessAlive } from '../lib/keep-process-alive';
+import { FACTORING_SOURCE_WHITELIST, matchesTopicSignal } from '../lib/relevance';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -71,11 +72,17 @@ function isTrainingAd(title: string): boolean {
  * 关键词快速过滤
  * @returns true=通过, false=淘汰, null=不确定需LLM
  */
-function keywordFilter(title: string, text: string): boolean | null {
+function keywordFilter(title: string, text: string, sourceId?: string): boolean | null {
   // 课程 / 培训广告 / 招商引流：明确淘汰
   if (isTrainingAd(title)) return false;
 
   const combined = `${title} ${text}`;
+
+  // 行业垂直信源先交模型复核；协会内部事务及培训广告已在上方拦截。
+  if (sourceId && FACTORING_SOURCE_WHITELIST.has(sourceId)) return null;
+
+  // 一般信源必须命中直接业务词或业务词组合，不能只凭“金融/供应链”等泛词放行。
+  if (matchesTopicSignal(combined)) return true;
 
   // 高置信度命中 → 直接通过
   for (const kw of HIGH_CONFIDENCE_KEYWORDS) {
@@ -246,7 +253,7 @@ export async function runPreFilter() {
 
   for (const article of articles) {
     const text = `${article.content || ''} ${article.excerpt || ''}`;
-    const result = keywordFilter(article.title, text);
+    const result = keywordFilter(article.title, text, article.source_id);
 
     if (result === true) {
       passed.push(article.id);
@@ -288,7 +295,7 @@ export async function runPreFilter() {
       const batch = passed.slice(i, i + batchSize);
       const { error } = await supabase
         .from('articles')
-        .update({ pre_filtered: true })
+        .update({ pre_filtered: true, status: 'pending', is_selected: false, score: null })
         .in('id', batch);
       if (error) console.error(`Failed to update passed batch:`, error);
     }

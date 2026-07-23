@@ -92,8 +92,9 @@ export async function generateDailyReport(dateStr?: string) {
     .select('*')
     .gte('pub_date', startOfDay)
     .lte('pub_date', endOfDay)
-    .not('score', 'is', null)
-    .or('pre_filtered.is.null,pre_filtered.eq.true')
+    .eq('pre_filtered', true)
+    .eq('status', 'selected')
+    .eq('is_selected', true)
     .order('score', { ascending: false });
 
   if (error || !rows) {
@@ -169,8 +170,9 @@ export async function generateWeeklyReport(year: number, week: number) {
     .select('*')
     .gte('pub_date', `${startDate.toISOString().split('T')[0]}T00:00:00+08:00`)
     .lt('pub_date', `${endDate.toISOString().split('T')[0]}T00:00:00+08:00`)
-    .not('score', 'is', null)
-    .or('pre_filtered.is.null,pre_filtered.eq.true')
+    .eq('pre_filtered', true)
+    .eq('status', 'selected')
+    .eq('is_selected', true)
     .order('score', { ascending: false });
 
   if (error || !rows) {
@@ -262,8 +264,9 @@ async function generateMonthlyReport(year: number, month: number) {
     .select('*')
     .gte('pub_date', `${startDate.toISOString().split('T')[0]}T00:00:00+08:00`)
     .lt('pub_date', `${endDate.toISOString().split('T')[0]}T00:00:00+08:00`)
-    .not('score', 'is', null)
-    .or('pre_filtered.is.null,pre_filtered.eq.true')
+    .eq('pre_filtered', true)
+    .eq('status', 'selected')
+    .eq('is_selected', true)
     .order('score', { ascending: false });
 
   if (error || !rows) {

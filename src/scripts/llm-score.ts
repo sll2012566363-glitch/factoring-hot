@@ -83,7 +83,7 @@ function readDimensions(payload: Record<string, unknown>, score: number): ScoreR
 
 async function scoreWithDeepSeek(article: Article): Promise<ScoreResult | null> {
   const contentSnippet = (article.content || article.excerpt || '').substring(0, 1000);
-  const prompt = `你是保理与供应链金融行业主编。请严格评估以下已收录全文，而不是给出默认中高分。
+  const prompt = `你是保理与供应链金融行业主编。请严格评估以下已收录正文或可靠摘要，而不是给出默认中高分。
 
 五维评分各0-20分，score 必须严格等于五维之和：
 - frontier：独立分析、专业解释或重要数据
@@ -185,14 +185,15 @@ export async function runScore() {
   }
 
   const sourceOnly = articles.filter(article => !hasFullContent(article));
-  if (sourceOnly.length > 0) {
-    await Promise.all(sourceOnly.map(article => supabase.from('articles').update({
-      status: 'rejected',
-      ai_reason: '正文未达到站内全文标准，仅作为原文线索展示。',
+  const scoreable = articles.filter(article => hasFullContent(article) || `${article.content || ''} ${article.excerpt || ''}`.trim().length >= 40) as Article[];
+  const unscoreable = sourceOnly.filter(article => !scoreable.some(candidate => candidate.id === article.id));
+  if (unscoreable.length > 0) {
+    await Promise.all(unscoreable.map(article => supabase.from('articles').update({
+      status: 'rejected', is_selected: false,
+      ai_reason: '未取得足以核验行业相关性的正文或摘要。',
     }).eq('id', article.id)));
   }
-  const scoreable = articles.filter(hasFullContent) as Article[];
-  console.log(`Found ${scoreable.length} full-text articles to score; ${sourceOnly.length} source-only items skipped\n`);
+  console.log(`Found ${scoreable.length} articles with full text or usable summaries to score; ${unscoreable.length} empty items skipped\n`);
 
   let scored = 0;
   let failed = 0;
@@ -265,7 +266,7 @@ export async function runScore() {
   if (scoreable.length > 0 && scored === 0 && failed > 0) {
     throw new Error('All LLM scoring requests failed; refusing to mark the pipeline successful.');
   }
-  return { scored, failed, skipped: skipped + sourceOnly.length, total: scoreable.length };
+  return { scored, failed, skipped: skipped + unscoreable.length, total: scoreable.length };
 }
 
 const isMain = typeof process !== 'undefined' &&

@@ -34,7 +34,8 @@ export async function getAllArticles(limit = 50, offset = 0): Promise<Article[]>
     .from('articles')
     .select('*')
     .eq('pre_filtered', true)
-    .in('status', ['selected', 'pending'])
+    .eq('status', 'selected')
+    .eq('is_selected', true)
     .order('pub_date', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -69,7 +70,8 @@ export async function getArticlesByDate(date: string): Promise<Article[]> {
     .from('articles')
     .select('*')
     .eq('pre_filtered', true)
-    .in('status', ['selected', 'pending'])
+    .eq('status', 'selected')
+    .eq('is_selected', true)
     .gte('pub_date', startDate)
     .lte('pub_date', endDate)
     .order('score', { ascending: false });

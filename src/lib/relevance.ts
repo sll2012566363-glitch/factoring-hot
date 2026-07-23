@@ -34,6 +34,20 @@ export const CORE_TOPIC_KEYWORDS = [
   '融资租赁', '金融租赁', '售后回租', '租赁物', '租赁资产', '租赁业务', '设备融资',
 ];
 
+const TOPIC_COMBINATIONS = [
+  ['供应链', '金融|融资|票据|确权|应收账款|核心企业'],
+  ['应收账款', '融资|转让|质押|确权|保理|ABS|资产证券化|票据'],
+  ['票据|商票|银票|承兑汇票', '供应链|融资|确权|保理|贴现'],
+  ['ABS|ABN|资产证券化|资产支持证券|资产支持票据', '保理|供应链|应收账款|租赁|票据'],
+  ['租赁', '融资|金融|售后回租|租赁物|租金债权|直租|资产证券化'],
+];
+
+/** 保理、供应链金融、融资租赁的直接词或业务词组合。 */
+export function matchesTopicSignal(text: string): boolean {
+  if (CORE_TOPIC_KEYWORDS.some(keyword => text.includes(keyword))) return true;
+  return TOPIC_COMBINATIONS.some(([left, right]) => new RegExp(left).test(text) && new RegExp(right).test(text));
+}
+
 // ---- 弱相关关键词（太泛，单独命中不算，权重 1，需 LLM 复核）----
 // 应收账款/核心企业/应付账款/债权转让/应收债权：财经媒体的 IPO/年报/
 // 立案调查/监管问询类文章几乎必提这些通用会计/法律术语（任何公司财报
@@ -82,6 +96,10 @@ export const FACTORING_SOURCE_WHITELIST = new Set([
   'sinotf',     // 中国供应链金融网
   'tfsino',     // 供应链金融研究院
   'cfec',       // 中国服务贸易协会商业保理专业委员会
+  'tcfa',       // 天津市商业保理协会
+  'szscfa',     // 深圳市供应链金融协会
+  'zjleasing',  // 浙江省租赁业协会
+  'yiliantong', // 供应链票据公共服务平台
   // 'wanlian' 已移出：该源"行业资讯 + 商业课程"混合，课程/方案推广页
   // 正文空壳却被关键词放行，已于 2026-07-15 关停（sources.json active=false）
 ]);
@@ -178,11 +196,16 @@ export async function isRelevant(
   }
 
   const text = `${title}\n${stripHtml(content || '')}`;
-  const hasCoreTopic = CORE_TOPIC_KEYWORDS.some(k => text.includes(k));
+  const hasCoreTopic = matchesTopicSignal(text);
 
   // 白名单只代表信源可靠，不代表每篇标题都相关；先过核心主题词。
   if (opts?.sourceId && FACTORING_SOURCE_WHITELIST.has(opts.sourceId) && hasCoreTopic) {
     return { relevant: true, method: 'keyword', score: 2, reason: 'source_whitelist_core_keyword' };
+  }
+  // 垂直信源的文章先进入预筛/模型复核，避免因标题被截断而误杀；
+  // 一般财经信源仍必须具备业务词组合，防止宏观和个股资讯混入。
+  if (!hasCoreTopic && opts?.sourceId && FACTORING_SOURCE_WHITELIST.has(opts.sourceId)) {
+    return { relevant: false, method: 'skipped', score: 0 };
   }
   if (!hasCoreTopic) {
     return { relevant: false, method: 'skipped', score: 0, reason: 'missing_core_topic_keyword' };

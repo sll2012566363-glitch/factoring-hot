@@ -629,6 +629,58 @@
       "selector": "a",
       "active": true,
       "note": "融资租赁与商业保理监管名单、政策和产融结合动态"
+    },
+    {
+      "id": "tcfa",
+      "name": "天津市商业保理协会",
+      "url": "https://www.tcfa.org.cn/news/press",
+      "type": "association",
+      "category": "policy",
+      "priority": "T1",
+      "weight": 1.25,
+      "rss": null,
+      "selector": "a",
+      "active": true,
+      "note": "商业保理行业监管名单、协会行业资讯与风险提示"
+    },
+    {
+      "id": "szscfa",
+      "name": "深圳市供应链金融协会",
+      "url": "https://www.szscfa.com/",
+      "type": "association",
+      "category": "market",
+      "priority": "T1",
+      "weight": 1.25,
+      "rss": null,
+      "selector": "a",
+      "active": true,
+      "note": "供应链金融行业新闻、研究与核心企业实践"
+    },
+    {
+      "id": "zjleasing",
+      "name": "浙江省租赁业协会",
+      "url": "https://www.zjleasing.org/Industry.asp",
+      "type": "association",
+      "category": "market",
+      "priority": "T1.5",
+      "weight": 1.15,
+      "rss": null,
+      "selector": "a",
+      "active": true,
+      "note": "融资租赁行业动态、设备更新政策与租赁资产研究"
+    },
+    {
+      "id": "yiliantong",
+      "name": "沂链通供应链票据公共服务平台",
+      "url": "https://www.yiliantong.cn/",
+      "type": "media",
+      "category": "market",
+      "priority": "T1.5",
+      "weight": 1.1,
+      "rss": null,
+      "selector": "a",
+      "active": true,
+      "note": "供应链票据、商票融资与票据服务平台业务动态"
     }
   ]
 }
