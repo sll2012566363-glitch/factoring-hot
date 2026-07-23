@@ -5,6 +5,7 @@ import Header from '@/components/Header';
 interface AppShellProps {
   children: React.ReactNode;
   rail?: React.ReactNode;
+  railAfter?: React.ReactNode;
   wide?: boolean;
 }
 
@@ -33,13 +34,13 @@ function DefaultRail() {
   );
 }
 
-export default function AppShell({ children, rail, wide = false }: AppShellProps) {
+export default function AppShell({ children, rail, railAfter, wide = false }: AppShellProps) {
   return (
     <div className="app-shell">
       <Header />
       <div className={`app-shell-content ${wide ? 'app-shell-content-wide' : ''}`}>
         <main className="app-main">{children}</main>
-        <aside className="app-rail">{rail ?? <DefaultRail />}</aside>
+        <aside className="app-rail">{rail ?? <DefaultRail />}{railAfter}</aside>
       </div>
     </div>
   );
