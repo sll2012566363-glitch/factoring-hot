@@ -12,7 +12,7 @@ const supabase = createClient(
 );
 
 async function getArticles(): Promise<{ full: Article[]; sourceOnly: Article[]; lastFetchedAt: string | null }> {
-  const [{ data, error }, { data: sources }] = await Promise.all([
+  const [{ data: selected, error }, { data: pending }, { data: sources }] = await Promise.all([
     supabase
     .from('articles')
     .select(
@@ -23,21 +23,28 @@ async function getArticles(): Promise<{ full: Article[]; sourceOnly: Article[]; 
     .eq('pre_filtered', true)
     .eq('status', 'selected')
     .eq('is_selected', true)
-    // 只有完成最终评分并入选的文章进入前台；候选文章留在后台处理。
+    // 最终入选文章进入主信息流。
     .order('pub_date', { ascending: false })
     .order('score', { ascending: false })
     .limit(500),
+    supabase
+    .from('articles')
+    .select('id, title, link, excerpt, content, content_html, source_name, category, score, pub_date, ai_reason, scoring_method, cover_image')
+    .eq('pre_filtered', true)
+    .eq('status', 'pending')
+    .order('pub_date', { ascending: false })
+    .limit(24),
     supabase.from('sources').select('last_fetched_at').eq('active', true).not('last_fetched_at', 'is', null).order('last_fetched_at', { ascending: false }).limit(1),
   ]);
 
-  if (error || !data) return { full: [], sourceOnly: [], lastFetchedAt: sources?.[0]?.last_fetched_at || null };
-  const partitioned = partitionByContentQuality(data as Article[]);
+  if (error || !selected) return { full: [], sourceOnly: [], lastFetchedAt: sources?.[0]?.last_fetched_at || null };
+  const partitioned = partitionByContentQuality(selected as Article[]);
   const slim = (items: Article[]) => items.map((a) => ({
     ...a,
     content: a.content ? a.content.substring(0, 300) : a.content,
     content_html: undefined,
   })) as Article[];
-  return { full: slim(partitioned.full), sourceOnly: slim(partitioned.sourceOnly), lastFetchedAt: sources?.[0]?.last_fetched_at || null };
+  return { full: slim(partitioned.full), sourceOnly: slim([...partitioned.sourceOnly, ...((pending || []) as Article[])]), lastFetchedAt: sources?.[0]?.last_fetched_at || null };
 }
 
 export default async function Home() {
