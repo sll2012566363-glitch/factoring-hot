@@ -163,8 +163,16 @@ function ArticleMeta({ article }: { article: any }) {
 }
 
 function JsonSection({ data }: { data: any }) {
-  if (Array.isArray(data)) return <ul className="space-y-1">{data.slice(0, 4).map((item, index) => <li key={index}>• {typeof item === 'string' ? item : JSON.stringify(item)}</li>)}</ul>;
-  if (typeof data === 'object' && data !== null) return <div className="space-y-1">{Object.entries(data).slice(0, 4).map(([key, value]) => <p key={key}><span className="font-medium text-slate-800">{key}：</span>{typeof value === 'string' ? value : JSON.stringify(value)}</p>)}</div>;
+  if (Array.isArray(data)) return <ul className="space-y-1">{data.slice(0, 4).map((item, index) => <li key={index}>• {typeof item === 'string' ? item : '持续跟踪相关行业信号'}</li>)}</ul>;
+  if (typeof data === 'object' && data !== null) {
+    const categoryLabels: Record<string, string> = { frontier: '前沿解读', industry_model: '业务与市场', regulatory: '监管政策', dispute: '风险与争议', normative: '规范文件' };
+    const sources = Array.isArray(data.top_sources) ? data.top_sources : [];
+    const distribution = data.category_distribution && typeof data.category_distribution === 'object' ? data.category_distribution : null;
+    return <div className="space-y-3">
+      {sources.length > 0 && <p><span className="font-medium text-slate-800">重点信源：</span>{sources.slice(0, 5).map((source: any) => `${source.name || '未知来源'}${source.count ? `（${source.count}篇）` : ''}`).join('、')}</p>}
+      {distribution && <p><span className="font-medium text-slate-800">本期重点：</span>{Object.entries(distribution).filter(([, value]) => Number(value) > 0).map(([key, value]) => `${categoryLabels[key] || key}${value}篇`).join('、') || '持续关注保理与供应链金融实质关联资讯'}</p>}
+    </div>;
+  }
   return null;
 }
 
