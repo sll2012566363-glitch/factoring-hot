@@ -15,7 +15,7 @@ function ReportSectionView({ section }: { section: DailySection }) {
   const meta = id === 'must_read'
     ? { eyebrow: 'EDITOR\'S PICK', note: '终审入选、正文可读、评分不低于 70 分', style: 'border-sky-200 bg-sky-50/50' }
     : id === 'source_signals'
-      ? { eyebrow: 'SOURCE SIGNALS', note: '已命中业务组合词，待终审；仅提供摘要与原文入口', style: 'border-slate-200 bg-slate-50' }
+      ? { eyebrow: 'SOURCE SIGNALS', note: '已命中业务组合词，低置信或待复核；仅提供摘要与原文入口', style: 'border-slate-200 bg-slate-50' }
       : id === 'recent_highlights'
         ? { eyebrow: 'LAST 7 DAYS', note: '今日样本不足时保留的近期终审可读内容', style: 'border-slate-200 bg-white' }
       : { eyebrow: 'INDUSTRY UPDATES', note: '已完成终审的行业资讯，点击查看原文', style: 'border-slate-200 bg-white' };
