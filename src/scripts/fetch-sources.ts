@@ -15,7 +15,7 @@ const supabase = createClient(
 const parser = new Parser();
 let extendedHealthColumnsAvailable: boolean | null = null;
 const SOURCE_PAGE_TIMEOUT_MS = 8_000;
-const MAX_AMBIGUOUS_CANDIDATES_PER_SOURCE = 5;
+const MAX_AMBIGUOUS_CANDIDATES_PER_SOURCE = 10;
 
 interface Source {
   id: string;

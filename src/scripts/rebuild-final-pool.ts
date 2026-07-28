@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { FACTORING_SOURCE_WHITELIST, matchesTopicSignal } from '../lib/relevance';
+import { FACTORING_SOURCE_WHITELIST, matchesCandidateTopic } from '../lib/relevance';
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
@@ -24,7 +24,7 @@ async function run() {
   for (const article of data) {
     const text = `${article.title || ''} ${article.excerpt || ''} ${article.content || ''}`;
     const isVertical = FACTORING_SOURCE_WHITELIST.has(article.source_id || '');
-    (matchesTopicSignal(text) || isVertical ? candidateIds : rejectedIds).push(article.id);
+    (matchesCandidateTopic(text) || isVertical ? candidateIds : rejectedIds).push(article.id);
   }
 
   await update(candidateIds, { pre_filtered: true, status: 'pending', is_selected: false, score: null, score_dimensions: null, scored_at: null });

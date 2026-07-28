@@ -42,10 +42,30 @@ const TOPIC_COMBINATIONS = [
   ['租赁', '融资|金融|售后回租|租赁物|租金债权|直租|资产证券化'],
 ];
 
+// 扩展召回词组：不是“主资讯直接入选”条件，而是让边缘但可能有价值的
+// 行业动态进入候选池，由正文抓取 + 模型终审决定去留。
+// 这样既不会把“供应链”一词当作相关，也不会漏掉结算、账期、贸易融资、
+// 租赁资产等行业惯用但不总带“保理”字样的报道。
+const BROAD_TOPIC_COMBINATIONS = [
+  ['供应链|产业链', '采购|订单|结算|付款|账期|账款|物流|仓储|库存|供应商|经销商|中小企业|普惠|授信|信贷|产业金融|金融科技|平台'],
+  ['应收账款|应付账款|账款', '回款|结算|账期|逾期|拖欠|确权|信用|供应商|采购|融资|转让|质押'],
+  ['票据|商票|银票|承兑汇票', '贴现|承兑|融资|信用|结算|供应链|转让'],
+  ['融资租赁|金融租赁|租赁', '资产|设备|项目|租金|债权|融资|金融|直租|回租|证券化'],
+  ['ABS|ABN|资产证券化|资产支持证券|资产支持票据', '应收|租赁|票据|供应链|基础设施|企业融资'],
+  ['贸易', '融资|结算|信用|供应链|应收|账期|保理'],
+  ['保函|国际结算|跨境结算', '贸易|融资|供应链|应收|信用'],
+];
+
 /** 保理、供应链金融、融资租赁的直接词或业务词组合。 */
 export function matchesTopicSignal(text: string): boolean {
   if (CORE_TOPIC_KEYWORDS.some(keyword => text.includes(keyword))) return true;
   return TOPIC_COMBINATIONS.some(([left, right]) => new RegExp(left).test(text) && new RegExp(right).test(text));
+}
+
+/** 用于候选池的宽松行业信号；命中后仍必须经模型评分才能进入主资讯。 */
+export function matchesCandidateTopic(text: string): boolean {
+  if (matchesTopicSignal(text)) return true;
+  return BROAD_TOPIC_COMBINATIONS.some(([left, right]) => new RegExp(left).test(text) && new RegExp(right).test(text));
 }
 
 // ---- 弱相关关键词（太泛，单独命中不算，权重 1，需 LLM 复核）----
@@ -197,6 +217,7 @@ export async function isRelevant(
 
   const text = `${title}\n${stripHtml(content || '')}`;
   const hasCoreTopic = matchesTopicSignal(text);
+  const hasCandidateTopic = matchesCandidateTopic(text);
 
   // 白名单只代表信源可靠，不代表每篇标题都相关；先过核心主题词。
   if (opts?.sourceId && FACTORING_SOURCE_WHITELIST.has(opts.sourceId) && hasCoreTopic) {
@@ -207,8 +228,14 @@ export async function isRelevant(
   if (!hasCoreTopic && opts?.sourceId && FACTORING_SOURCE_WHITELIST.has(opts.sourceId)) {
     return { relevant: false, method: 'skipped', score: 0 };
   }
-  if (!hasCoreTopic) {
+  if (!hasCandidateTopic) {
     return { relevant: false, method: 'skipped', score: 0, reason: 'missing_core_topic_keyword' };
+  }
+
+  // 宽松信号仅进入候选池，不能绕过终审直接显示；抓取脚本会把无 reason 的
+  // skipped 项作为待预筛候选保留。
+  if (!hasCoreTopic) {
+    return { relevant: false, method: 'skipped', score: 1 };
   }
 
   const score = keywordScore(text);

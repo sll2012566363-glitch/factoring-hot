@@ -215,8 +215,9 @@ export async function runScore() {
         score_dimensions: result.dimensions,
         scoring_method: 'llm',
         scored_at: new Date().toISOString(),
-        status: result.score >= 40 ? 'selected' : 'rejected',
-        is_selected: result.score >= 40,
+        // 35 分即可成为“合格动态”；更高的日报/周报展示层仍会继续筛选。
+        status: result.score >= 35 ? 'selected' : 'rejected',
+        is_selected: result.score >= 35,
       };
 
       if (result.excerpt) {

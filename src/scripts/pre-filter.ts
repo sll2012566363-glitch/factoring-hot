@@ -6,7 +6,7 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import { keepProcessAlive } from '../lib/keep-process-alive';
-import { FACTORING_SOURCE_WHITELIST, matchesTopicSignal } from '../lib/relevance';
+import { FACTORING_SOURCE_WHITELIST, matchesCandidateTopic, matchesTopicSignal } from '../lib/relevance';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -81,8 +81,10 @@ function keywordFilter(title: string, text: string, sourceId?: string): boolean 
   // 行业垂直信源先交模型复核；协会内部事务及培训广告已在上方拦截。
   if (sourceId && FACTORING_SOURCE_WHITELIST.has(sourceId)) return null;
 
-  // 一般信源必须命中直接业务词或业务词组合，不能只凭“金融/供应链”等泛词放行。
+  // 一般信源命中扩展业务组合后交 LLM 复核；只有直接核心词才快速通过。
+  if (!matchesCandidateTopic(combined)) return false;
   if (matchesTopicSignal(combined)) return true;
+  return null;
 
   // 高置信度命中 → 直接通过
   for (const kw of HIGH_CONFIDENCE_KEYWORDS) {
