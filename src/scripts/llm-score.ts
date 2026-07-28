@@ -210,15 +210,17 @@ export async function runScore() {
       failed++;
       console.log(`  ✗ Failed, keeping existing score\n`);
     } else {
-      const reviewStatus = result.score >= 15 ? 'selected' : result.score >= 8 ? 'pending' : 'rejected';
+      // 站内主资讯是“可读内容”承诺：评分合格但正文未抓到时只能保留原文线索。
+      const canPublishOnSite = result.score >= 15 && hasFullContent(article);
+      const reviewStatus = canPublishOnSite ? 'selected' : result.score >= 8 ? 'pending' : 'rejected';
       const updatePayload: Record<string, any> = {
         score: result.score,
         score_dimensions: result.dimensions,
         scoring_method: 'llm',
         scored_at: new Date().toISOString(),
-        // 15 分为合格动态；8–14 分仅留在“原文线索”，不进入主资讯/周月报。
+        // 15 分且正文完整才是合格动态；其余仅留在“原文线索”，不进入主资讯/周月报。
         status: reviewStatus,
-        is_selected: result.score >= 15,
+        is_selected: canPublishOnSite,
       };
 
       if (result.excerpt) {
