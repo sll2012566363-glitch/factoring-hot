@@ -120,8 +120,10 @@ export const FACTORING_SOURCE_WHITELIST = new Set([
   'szscfa',     // 深圳市供应链金融协会
   'zjleasing',  // 浙江省租赁业协会
   'yiliantong', // 供应链票据公共服务平台
-  // 'wanlian' 已移出：该源"行业资讯 + 商业课程"混合，课程/方案推广页
-  // 正文空壳却被关键词放行，已于 2026-07-15 关停（sources.json active=false）
+  'clba',       // 中国外商投资企业协会租赁业工作委员会
+  'szfla',      // 深圳市融资租赁行业协会
+  'wuhan-finance', // 地方金融监管部门的保理/租赁监管动态
+  'wanlian',    // 强相关行业媒体；仅进入候选池，仍受正文与模型双闸门约束
 ]);
 
 function stripHtml(html: string): string {

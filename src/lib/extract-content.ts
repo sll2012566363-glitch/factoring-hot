@@ -8,7 +8,7 @@ import * as cheerio from 'cheerio';
 
 export const CONTENT_SELECTORS = [
   // Specific article containers must precede broad `.content` shells.
-  '#endText', '.newsText', '.detailContent', '.articleWrap',
+  '#endText', '.newsText', '.detailContent', '.articleWrap', '.entity_content',
   'article', '.article-content', '#content',
   '.post-body', '.entry-content', '.TRS_Editor', '.text',
   '.detail-content', '.news-content', '.content',
@@ -163,11 +163,29 @@ export interface ExtractedContent {
  * @param baseUrl 原文 URL，用于解析相对图片路径
  */
 export function extractContentHtml($: cheerio.CheerioAPI, baseUrl: string): ExtractedContent {
-  $(REMOVE_SELECTORS).remove();
+  // 少数旧站把完整文章包在 <form> 中（万联网即如此）；不能全局删 form 后
+  // 再找正文。保留包含已知文章容器的 form，其余表单仍视作页面噪音清理。
+  const removeSelectors = REMOVE_SELECTORS.split(',').map((selector) => selector.trim()).filter((selector) => selector && selector !== 'form').join(', ');
+  $(removeSelectors).remove();
+  $('form').each((_i, form) => {
+    if (!$(form).find('.entity_content, article, .article-content, .newsText, .detailContent').length) $(form).remove();
+  });
 
   let $content: any = null;
   let bestScore = 0;
+  // 万联网资讯页的通用 `.content` 容器包含大量推荐/导航，文本量会压过正文；
+  // 实际正文固定在 `.entity_content`，必须优先锁定，避免把空壳侧栏当正文。
+  try {
+    if (new URL(baseUrl).hostname.endsWith('10000link.com')) {
+      const $entity = $('.entity_content').first();
+      if ($entity.text().replace(/\s+/g, ' ').trim().length > 80) {
+        $content = $entity;
+        bestScore = Number.POSITIVE_INFINITY;
+      }
+    }
+  } catch { /* generic extraction below */ }
   for (const sel of CONTENT_SELECTORS) {
+    if ($content) break;
     $(sel).each((_i, el) => {
       const $el = $(el);
       const text = $el.text().replace(/\s+/g, ' ').trim();
