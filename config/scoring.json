@@ -80,61 +80,30 @@
   "dailyReport": {
     "sections": [
       {
-        "id": "top_stories",
-        "name": "今日头条",
-        "maxItems": 5,
+        "id": "must_read",
+        "name": "今日必读",
+        "maxItems": 3,
         "sortBy": "score",
         "filter": {
-          "minScore": 60
+          "minScore": 70,
+          "requiresFullContent": true
         }
       },
       {
-        "id": "frontier",
-        "name": "前沿解读",
-        "maxItems": 10,
+        "id": "industry_updates",
+        "name": "行业动态",
+        "maxItems": 15,
         "filter": {
-          "section": "frontier"
+          "minScore": 45,
+          "requiresFinalSelection": true
         }
       },
       {
-        "id": "industry_model",
-        "name": "行业前沿模式",
-        "maxItems": 10,
-        "filter": {
-          "section": "industry_model"
-        }
-      },
-      {
-        "id": "regulatory",
-        "name": "前沿监管新闻",
-        "maxItems": 10,
-        "filter": {
-          "section": "regulatory"
-        }
-      },
-      {
-        "id": "dispute",
-        "name": "前沿争议解决",
+        "id": "source_signals",
+        "name": "原文线索",
         "maxItems": 8,
         "filter": {
-          "section": "dispute"
-        }
-      },
-      {
-        "id": "normative",
-        "name": "前沿规范文件",
-        "maxItems": 8,
-        "filter": {
-          "section": "normative"
-        }
-      },
-      {
-        "id": "depth",
-        "name": "深度解读",
-        "maxItems": 5,
-        "sortBy": "score",
-        "filter": {
-          "minScore": 70
+          "requiresPendingReview": true
         }
       }
     ]

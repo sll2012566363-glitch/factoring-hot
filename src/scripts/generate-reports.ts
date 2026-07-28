@@ -10,14 +10,10 @@ const supabase = createClient(
 
 const CATEGORIES = ['frontier', 'industry_model', 'regulatory', 'dispute', 'normative'] as const;
 
-const SECTION_CONFIG: Record<string, { id: string; name: string; maxItems: number; minScore?: number }> = {
-  top_stories:    { id: 'top_stories',    name: '今日头条',     maxItems: 5,  minScore: 60 },
-  frontier:       { id: 'frontier',       name: '前沿解读',     maxItems: 10 },
-  industry_model: { id: 'industry_model', name: '行业前沿模式', maxItems: 10 },
-  regulatory:     { id: 'regulatory',     name: '前沿监管新闻', maxItems: 10 },
-  dispute:        { id: 'dispute',        name: '前沿争议解决', maxItems: 8  },
-  normative:      { id: 'normative',      name: '前沿规范文件', maxItems: 8  },
-  depth:          { id: 'depth',          name: '深度解读',     maxItems: 5,  minScore: 70 },
+const DAILY_LIMITS = {
+  mustRead: 3,
+  industryUpdates: 15,
+  sourceSignals: 8,
 };
 
 function articleCard(a: any) {
@@ -27,6 +23,7 @@ function articleCard(a: any) {
     link: a.link,
     source_name: a.source_name,
     score: a.score,
+    ai_reason: a.ai_reason,
     excerpt: a.excerpt || (a.content || '').substring(0, 200),
     pub_date: a.pub_date,
     category: a.category,
@@ -87,44 +84,47 @@ export async function generateDailyReport(dateStr?: string) {
   const startOfDay = `${date}T00:00:00+08:00`;
   const endOfDay = `${date}T23:59:59+08:00`;
 
-  const { data: rows, error } = await supabase
-    .from('articles')
-    .select('*')
-    .gte('pub_date', startOfDay)
-    .lte('pub_date', endOfDay)
-    .eq('pre_filtered', true)
-    .eq('status', 'selected')
-    .eq('is_selected', true)
-    .order('score', { ascending: false });
+  const priorDate = new Date(`${date}T00:00:00+08:00`);
+  priorDate.setUTCDate(priorDate.getUTCDate() - 7);
+  const recentStart = `${priorDate.toISOString().slice(0, 10)}T00:00:00+08:00`;
+  const [{ data: selectedRows, error }, { data: pendingRows, error: pendingError }, { data: recentRows, error: recentError }] = await Promise.all([
+    supabase.from('articles').select('*').gte('pub_date', startOfDay).lte('pub_date', endOfDay)
+      .eq('pre_filtered', true).eq('status', 'selected').eq('is_selected', true).order('score', { ascending: false }),
+    supabase.from('articles').select('*').gte('pub_date', startOfDay).lte('pub_date', endOfDay)
+      .eq('pre_filtered', true).eq('status', 'pending').order('pub_date', { ascending: false }),
+    supabase.from('articles').select('*').gte('pub_date', recentStart).lt('pub_date', startOfDay)
+      .eq('pre_filtered', true).eq('status', 'selected').eq('is_selected', true).order('score', { ascending: false }).limit(5),
+  ]);
 
-  if (error || !rows) {
-    console.error('Failed to fetch articles:', error);
-    throw error || new Error('Failed to fetch daily report articles');
+  if (error || pendingError || recentError || !selectedRows || !pendingRows || !recentRows) {
+    console.error('Failed to fetch articles:', error || pendingError || recentError);
+    throw error || pendingError || recentError || new Error('Failed to fetch daily report articles');
   }
 
-  const articles = rows.filter(hasFullContent);
-  console.log(`Found ${articles.length} full-text scored articles for ${date}`);
+  // 三层日报：全文强相关精选、已终审动态、待终审原文线索。
+  const selected = selectedRows.filter((a) => (a.score || 0) >= 45);
+  const mustRead = selected.filter((a) => (a.score || 0) >= 70 && hasFullContent(a)).slice(0, DAILY_LIMITS.mustRead);
+  const mustReadIds = new Set(mustRead.map((a) => a.id));
+  const industryUpdates = selected.filter((a) => !mustReadIds.has(a.id)).slice(0, DAILY_LIMITS.industryUpdates);
+  const sourceSignals = pendingRows.slice(0, DAILY_LIMITS.sourceSignals);
+  const recentHighlights = recentRows.filter((a) => (a.score || 0) >= 45 && hasFullContent(a));
+  const articles = [...mustRead, ...industryUpdates];
+  console.log(`Found ${mustRead.length} must-read, ${industryUpdates.length} industry updates and ${sourceSignals.length} pending signals for ${date}`);
 
-  // Build sections
-  const sections = Object.values(SECTION_CONFIG).map(cfg => {
-    let filtered = articles.filter(a => {
-      if (cfg.minScore && (a.score || 0) < cfg.minScore) return false;
-      if (cfg.id === 'top_stories' || cfg.id === 'depth') return true;
-      return a.category === cfg.id;
-    });
-
-    // For top_stories: take highest scored across all categories
-    if (cfg.id === 'top_stories') {
-      filtered = articles.slice(0, cfg.maxItems);
-    }
-
-    return {
-      id: cfg.id,
-      name: cfg.name,
-      maxItems: cfg.maxItems,
-      articles: filtered.slice(0, cfg.maxItems).map(articleCard),
-    };
-  });
+  const categories = new Map<string, number>();
+  for (const article of articles) categories.set(article.category, (categories.get(article.category) || 0) + 1);
+  const categoryNames: Record<string, string> = {
+    frontier: '前沿解读', industry_model: '业务与市场', regulatory: '监管政策', dispute: '风险与争议', normative: '规范文件',
+  };
+  const signals = Array.from(categories.entries()).sort((a, b) => b[1] - a[1]).slice(0, 3)
+    .map(([category, count]) => `${categoryNames[category] || '行业动态'} ${count} 篇`);
+  const sections = [
+    { id: 'must_read', name: '今日必读', maxItems: DAILY_LIMITS.mustRead, tier: 'must_read', articles: mustRead.map(articleCard) },
+    { id: 'industry_updates', name: '行业动态', maxItems: DAILY_LIMITS.industryUpdates, tier: 'industry_updates', articles: industryUpdates.map(articleCard) },
+    { id: 'source_signals', name: '原文线索', maxItems: DAILY_LIMITS.sourceSignals, tier: 'source_signals', articles: sourceSignals.map(articleCard) },
+    ...(articles.length === 0 && recentHighlights.length > 0 ? [{ id: 'recent_highlights', name: '近 7 日精选', maxItems: 5, tier: 'recent_highlights', articles: recentHighlights.map(articleCard) }] : []),
+    { id: 'today_signals', name: '今日信号', tier: 'today_signals', signals, articles: [] },
+  ];
 
   const avgScore = articles.length > 0
     ? (articles.reduce((s, a) => s + (a.score || 0), 0) / articles.length).toFixed(1)
@@ -137,8 +137,8 @@ export async function generateDailyReport(dateStr?: string) {
     sections,
     total_articles: articles.length,
     executive_summary: articles.length > 0
-      ? `${date}共收录${articles.length}篇行业资讯，平均评分${avgScore}分。`
-      : `${date}暂无已完成评分的新增行业资讯；系统仍在持续抓取与核验。`,
+      ? `${date}终审收录${articles.length}篇行业资讯，其中今日必读${mustRead.length}篇；另有${sourceSignals.length}条原文线索待终审。`
+      : `${date}暂无新增终审行业资讯；系统仍在持续抓取、评分与核验。${recentHighlights.length ? `下方保留近7日${recentHighlights.length}篇可读精选。` : ''}`,
     generated_at: new Date().toISOString(),
   };
 
