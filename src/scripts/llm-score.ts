@@ -92,7 +92,7 @@ async function scoreWithDeepSeek(article: Article): Promise<ScoreResult | null> 
 - dispute：保理/融资租赁等具体争议、案例或风控教训
 - normative：可执行的规范文件、政策或司法规则
 
-校准：90+仅限全国性重大规则或多源重大事件；75-89为明确且重要行业信号；55-74为有价值的一般专业内容；35-54为存在明确行业业务事实、但增量有限的合格动态；15-34为存在业务关联但事实或正文不足的线索；低于15为无关、广告、导航或无实质信息。不得因出现“金融”“供应链”等泛词给高分。
+校准：五维总分用于区分内容层级，不是传统百分制相关性分。30+为多维度的重要行业内容；15-29为具备明确业务事实的合格行业动态；8-14为存在业务关联但事实或正文不足的线索；低于8为无关、广告、导航或无实质信息。不得因出现“金融”“供应链”等泛词给分。
 
 标题：${article.title}
 内容：${contentSnippet || '无内容'}
@@ -210,15 +210,15 @@ export async function runScore() {
       failed++;
       console.log(`  ✗ Failed, keeping existing score\n`);
     } else {
-      const reviewStatus = result.score >= 35 ? 'selected' : result.score >= 15 ? 'pending' : 'rejected';
+      const reviewStatus = result.score >= 15 ? 'selected' : result.score >= 8 ? 'pending' : 'rejected';
       const updatePayload: Record<string, any> = {
         score: result.score,
         score_dimensions: result.dimensions,
         scoring_method: 'llm',
         scored_at: new Date().toISOString(),
-        // 35 分为合格动态；15–34 分仅留在“原文线索”，不进入主资讯/周月报。
+        // 15 分为合格动态；8–14 分仅留在“原文线索”，不进入主资讯/周月报。
         status: reviewStatus,
-        is_selected: result.score >= 35,
+        is_selected: result.score >= 15,
       };
 
       if (result.excerpt) {

@@ -13,7 +13,7 @@ function ReportSectionView({ section }: { section: DailySection }) {
   if (!articles.length) return null;
 
   const meta = id === 'must_read'
-    ? { eyebrow: 'EDITOR\'S PICK', note: '终审入选、正文可读、评分不低于 70 分', style: 'border-sky-200 bg-sky-50/50' }
+    ? { eyebrow: 'EDITOR\'S PICK', note: '终审入选、正文可读、至少具备两类行业价值信号', style: 'border-sky-200 bg-sky-50/50' }
     : id === 'source_signals'
       ? { eyebrow: 'SOURCE SIGNALS', note: '已命中业务组合词，低置信或待复核；仅提供摘要与原文入口', style: 'border-slate-200 bg-slate-50' }
       : id === 'recent_highlights'

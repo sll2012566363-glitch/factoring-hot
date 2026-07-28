@@ -102,12 +102,12 @@ export async function generateDailyReport(dateStr?: string) {
   }
 
   // 三层日报：全文强相关精选、已终审动态、待终审原文线索。
-  const selected = selectedRows.filter((a) => (a.score || 0) >= 35);
-  const mustRead = selected.filter((a) => (a.score || 0) >= 65 && hasFullContent(a)).slice(0, DAILY_LIMITS.mustRead);
+  const selected = selectedRows.filter((a) => (a.score || 0) >= 15);
+  const mustRead = selected.filter((a) => (a.score || 0) >= 30 && hasFullContent(a)).slice(0, DAILY_LIMITS.mustRead);
   const mustReadIds = new Set(mustRead.map((a) => a.id));
   const industryUpdates = selected.filter((a) => !mustReadIds.has(a.id)).slice(0, DAILY_LIMITS.industryUpdates);
   const sourceSignals = pendingRows.slice(0, DAILY_LIMITS.sourceSignals);
-  const recentHighlights = recentRows.filter((a) => (a.score || 0) >= 35 && hasFullContent(a));
+  const recentHighlights = recentRows.filter((a) => (a.score || 0) >= 15 && hasFullContent(a));
   const articles = [...mustRead, ...industryUpdates];
   console.log(`Found ${mustRead.length} must-read, ${industryUpdates.length} industry updates and ${sourceSignals.length} pending signals for ${date}`);
 

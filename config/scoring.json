@@ -85,7 +85,7 @@
         "maxItems": 3,
         "sortBy": "score",
         "filter": {
-          "minScore": 65,
+          "minScore": 30,
           "requiresFullContent": true
         }
       },
@@ -94,7 +94,7 @@
         "name": "行业动态",
         "maxItems": 15,
         "filter": {
-          "minScore": 35,
+          "minScore": 15,
           "requiresFinalSelection": true
         }
       },
