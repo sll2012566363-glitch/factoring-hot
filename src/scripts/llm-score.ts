@@ -102,7 +102,7 @@ async function scoreWithDeepSeek(article: Article): Promise<ScoreResult | null> 
 - dispute：保理/融资租赁等具体争议、案例或风控教训
 - normative：上述行业可执行的规范文件、政策或司法规则
 
-校准：融资租赁/金融租赁是本站明确覆盖的相邻核心领域，不得仅因“不涉及保理”判为无关；但仍须有具体监管、交易、数据、案例或业务实践。五维总分用于区分内容层级，不是传统百分制相关性分。${MUST_READ_MIN_SCORE}+为多维度的重要行业内容；${PUBLISH_MIN_SCORE}-${MUST_READ_MIN_SCORE - 1}为具备明确业务事实的合格行业动态；${SIGNAL_MIN_SCORE}-${PUBLISH_MIN_SCORE - 1}为存在业务关联但事实或正文不足的线索；低于${SIGNAL_MIN_SCORE}为无关、广告、导航或无实质信息。不得因出现“金融”“供应链”等泛词给分。reason 必须与总分层级一致：score >= ${PUBLISH_MIN_SCORE} 时不得写“不符合收录/入选标准”，应说明其可核验事实及价值边界。
+校准：融资租赁/金融租赁是本站明确覆盖的相邻核心领域，不得仅因“不涉及保理”判为无关；但仍须有具体监管、交易、数据、案例或业务实践。五维总分用于区分内容层级，不是传统百分制相关性分。${MUST_READ_MIN_SCORE}+为多维度的重要行业内容；${PUBLISH_MIN_SCORE}-${MUST_READ_MIN_SCORE - 1}为可公开展示的行业动态；低于${PUBLISH_MIN_SCORE}为无关、广告、导航或无实质信息。不得因出现“金融”“供应链”等泛词给分。reason 必须与总分层级一致：score >= ${PUBLISH_MIN_SCORE} 时不得写“不符合收录/入选标准”，应说明其可核验事实及价值边界。
 
 标题：${article.title}
 内容：${contentSnippet || '无内容'}
