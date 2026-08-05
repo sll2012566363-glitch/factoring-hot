@@ -11,11 +11,11 @@ const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || '保理 HOT';
 /**
  * GET /feed/all.xml
  *
- * Full RSS feed — all articles from the last 3 days, regardless of selection status.
+ * Full RSS feed — all articles from the last 60 days, newest first.
  */
 export async function GET(request: NextRequest) {
   const since = new Date();
-  since.setDate(since.getDate() - 3);
+  since.setDate(since.getDate() - 60);
 
   const { data: articles, error } = await adminClient
     .from('articles')

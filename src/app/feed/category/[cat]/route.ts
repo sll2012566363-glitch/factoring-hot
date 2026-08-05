@@ -38,7 +38,7 @@ export async function GET(
   }
 
   const since = new Date();
-  since.setDate(since.getDate() - 7);
+  since.setDate(since.getDate() - 60);
 
   const { data: articles, error } = await adminClient
     .from('articles')

@@ -17,7 +17,10 @@ const supabase = createClient(
 const parser = new Parser();
 let extendedHealthColumnsAvailable: boolean | null = null;
 const SOURCE_PAGE_TIMEOUT_MS = 8_000;
-const MAX_AMBIGUOUS_CANDIDATES_PER_SOURCE = 10;
+const MAX_AMBIGUOUS_CANDIDATES_PER_SOURCE = 20;
+const MAX_ARTICLES_PER_SOURCE = 50;
+const MAX_HTML_PAGES_PER_SOURCE = 4;
+const HISTORICAL_LOOKBACK_DAYS = 60;
 
 interface Source {
   id: string;
@@ -77,7 +80,7 @@ function isRecentCandidate(date: Date): boolean {
   const timestamp = date.getTime();
   if (!Number.isFinite(timestamp)) return false;
   const ageDays = (Date.now() - timestamp) / 86_400_000;
-  return ageDays >= -1 && ageDays <= 7;
+  return ageDays >= -1 && ageDays <= HISTORICAL_LOOKBACK_DAYS;
 }
 
 async function fetchRSS(source: Source): Promise<Article[]> {
@@ -133,15 +136,17 @@ type ApiFetcher = (source: Source) => Promise<Article[]>;
 async function fetchDahecube(source: Source): Promise<Article[]> {
   const articles: Article[] = [];
   try {
-    const response = await fetchHtml('https://app.dahecube.com/napi/news/pc/list', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channelid: 1, pno: 1, psize: 20 }),
-      signal: AbortSignal.timeout(SOURCE_PAGE_TIMEOUT_MS),
-    });
-    const data = await response.json() as any;
-    if (data.code === 0 && data.data?.items) {
-      for (const item of data.data.items) {
+    for (let pno = 1; pno <= MAX_HTML_PAGES_PER_SOURCE && articles.length < MAX_ARTICLES_PER_SOURCE; pno++) {
+      const response = await fetchHtml('https://app.dahecube.com/napi/news/pc/list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelid: 1, pno, psize: MAX_ARTICLES_PER_SOURCE }),
+        signal: AbortSignal.timeout(SOURCE_PAGE_TIMEOUT_MS),
+      });
+      const data = await response.json() as any;
+      const items = data.code === 0 ? data.data?.items || [] : [];
+      if (items.length === 0) break;
+      for (const item of items) {
         if (!item.title) continue;
         const link = item.qtype === 1 && item.linkurl
           ? item.linkurl
@@ -211,14 +216,16 @@ async function fetchCcxi(source: Source): Promise<Article[]> {
   const articles: Article[] = [];
   try {
     const orderby = JSON.stringify({ chuangjianshijian: 'desc' });
-    const url = `https://website-api.ccxi.com.cn/admin/content/wzgl/page?pageNo=1&pageSize=20&orderby=${encodeURIComponent(orderby)}`;
-    const response = await fetchHtml(url, {
-      headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(30000),
-    });
-    const data = await response.json() as any;
-    if (data.data?.records) {
-      for (const item of data.data.records) {
+    for (let pageNo = 1; pageNo <= MAX_HTML_PAGES_PER_SOURCE && articles.length < MAX_ARTICLES_PER_SOURCE; pageNo++) {
+      const url = `https://website-api.ccxi.com.cn/admin/content/wzgl/page?pageNo=${pageNo}&pageSize=${MAX_ARTICLES_PER_SOURCE}&orderby=${encodeURIComponent(orderby)}`;
+      const response = await fetchHtml(url, {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(30000),
+      });
+      const data = await response.json() as any;
+      const records = data.data?.records || [];
+      if (records.length === 0) break;
+      for (const item of records) {
         if (!item.mingcheng) continue;
         articles.push({
           title: item.mingcheng,
@@ -363,13 +370,38 @@ async function fetchHtmlContent(source: Source): Promise<Article[]> {
       signal: AbortSignal.timeout(SOURCE_PAGE_TIMEOUT_MS),
     });
     const html = await readHtmlResponse(response as unknown as Response);
-    const $ = cheerio.load(html);
+    const firstPage = genericExtract(cheerio.load(html), source, source.url);
+    const all = [...firstPage];
 
-    const articles = genericExtract($, source, source.url);
+    // 常见中文站点分页参数不统一；并行尝试 page/pageNo，重复链接会被去重。
+    // 失败或不支持分页的站点仍保留首页结果，不影响整批抓取。
+    const pageUrls = Array.from({ length: MAX_HTML_PAGES_PER_SOURCE - 1 }, (_, index) => index + 2)
+      .flatMap(page => {
+        const joiner = source.url.includes('?') ? '&' : '?';
+        return [
+          `${source.url}${joiner}page=${page}`,
+          `${source.url}${joiner}pageNo=${page}`,
+        ];
+      });
+    const pageResults = await Promise.allSettled(pageUrls.map(async (url) => {
+      const pageResponse = await fetchHtml(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+          'Accept': 'text/html,application/xhtml+xml',
+          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        },
+        signal: AbortSignal.timeout(SOURCE_PAGE_TIMEOUT_MS),
+      });
+      const pageHtml = await readHtmlResponse(pageResponse as unknown as Response);
+      return genericExtract(cheerio.load(pageHtml), source, url);
+    }));
+    for (const result of pageResults) {
+      if (result.status === 'fulfilled') all.push(...result.value);
+    }
 
-    // Limit to 20 articles per source to avoid noise
-    const limited = articles.slice(0, 20);
-    console.log(`✓ HTML: ${limited.length} articles from ${source.name}`);
+    const unique = Array.from(new Map(all.map(article => [article.link, article])).values());
+    const limited = unique.slice(0, MAX_ARTICLES_PER_SOURCE);
+    console.log(`✓ HTML: ${limited.length} articles from ${source.name} (首页+分页)`);
     return limited;
   } catch (error) {
     throw new Error(`HTML failed: ${(error as Error).message}`);

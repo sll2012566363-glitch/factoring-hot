@@ -161,17 +161,17 @@ function fallbackOnLLMFailure(batch: Article[], results: Map<string, boolean>) {
 export async function runPreFilter() {
   console.log('🔍 Starting pre-filter...\n');
 
-  // 查找最近30天未预筛的文章
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  // 查找最近60天未预筛的文章，支持分页补抓的历史文章进入统一审核。
+  const sixtyDaysAgo = new Date();
+  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
   const { data: articles, error } = await supabase
     .from('articles')
     .select('id, title, link, content, excerpt, source_id')
     .is('pre_filtered', null)
-    .gte('pub_date', thirtyDaysAgo.toISOString())
+    .gte('pub_date', sixtyDaysAgo.toISOString())
     .order('pub_date', { ascending: false })
-    .limit(1000);
+    .limit(1500);
 
   if (error) {
     console.error('Failed to fetch articles:', error);

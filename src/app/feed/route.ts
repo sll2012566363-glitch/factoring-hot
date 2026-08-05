@@ -12,12 +12,12 @@ const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || '保理 HOT';
 /**
  * GET /feed.xml
  *
- * Main RSS feed — selected articles from the last 7 days, newest first.
+ * Main RSS feed — selected articles from the last 60 days, newest first.
  */
 export async function GET(request: NextRequest) {
-  // Last 7 days
+  // Last 60 days
   const since = new Date();
-  since.setDate(since.getDate() - 7);
+  since.setDate(since.getDate() - 60);
 
   const { data: articles, error } = await adminClient
     .from('articles')
