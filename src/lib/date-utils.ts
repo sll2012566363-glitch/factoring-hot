@@ -90,7 +90,11 @@ export function formatDateSafe(input: unknown): string {
     hour: '2-digit', minute: '2-digit', hour12: false,
   }).formatToParts(d);
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
-  return `${get('year')}年${get('month')}月${get('day')}日 ${get('hour')}:${get('minute')}`;
+  const date = `${get('year')}年${get('month')}月${get('day')}日`;
+  // 许多来源只提供发布日期，数据库会以当地当天 00:00 保存。
+  // 这不是可核验的发布时间，不向用户伪装成精确时刻。
+  if (get('hour') === '00' && get('minute') === '00') return date;
+  return `${date} ${get('hour')}:${get('minute')}`;
 }
 
 /**
