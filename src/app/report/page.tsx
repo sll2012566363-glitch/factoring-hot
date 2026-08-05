@@ -13,10 +13,9 @@ export default function DailyReportPage() {
   useEffect(() => {
     async function loadReport() {
       try {
-        const now = new Date();
-        const beijingOffset = 8 * 60 * 60 * 1000;
-        const beijingDate = new Date(now.getTime() + beijingOffset);
-        const today = beijingDate.toISOString().split('T')[0];
+        const requestedDate = new URLSearchParams(window.location.search).get('date');
+        const beijingDate = new Date(Date.now() + 8 * 60 * 60 * 1000);
+        const today = requestedDate || beijingDate.toISOString().split('T')[0];
 
         const res = await fetch(`/api/report?date=${today}`);
         if (res.ok) {

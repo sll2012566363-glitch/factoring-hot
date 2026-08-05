@@ -3,9 +3,11 @@ import Parser from 'rss-parser';
 import { fetch as fetchHtml } from 'undici';
 import * as cheerio from 'cheerio';
 import { classifyArticle } from '../lib/classifier';
-import { isRelevant } from '../lib/relevance';
+import { editorialExclusionReason, isRelevant } from '../lib/relevance';
 import { sanitizePubDate, nowToMinute } from '../lib/date-utils';
 import { keepProcessAlive } from '../lib/keep-process-alive';
+import { readHtmlResponse } from '../lib/http-text';
+import { isScriptInvoked } from '../lib/script-entry';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,6 +30,7 @@ interface Source {
   weight: number;
   selector: string | null;
   active: boolean;
+  consecutive_failures?: number | null;
 }
 
 interface Article {
@@ -107,8 +110,7 @@ async function fetchRSS(source: Source): Promise<Article[]> {
         };
       });
   } catch (error) {
-    console.error(`✗ RSS failed for ${source.name}:`, (error as Error).message);
-    return [];
+    throw new Error(`RSS failed: ${(error as Error).message}`);
   }
 }
 
@@ -160,7 +162,7 @@ async function fetchDahecube(source: Source): Promise<Article[]> {
     }
     console.log(`✓ API: ${articles.length} articles from ${source.name}`);
   } catch (error) {
-    console.error(`✗ API failed for ${source.name}:`, (error as Error).message);
+    throw new Error(`API failed: ${(error as Error).message}`);
   }
   return articles;
 }
@@ -200,7 +202,7 @@ async function fetch36kr(source: Source): Promise<Article[]> {
     }
     console.log(`✓ API: ${articles.length} articles from ${source.name}`);
   } catch (error) {
-    console.error(`✗ API failed for ${source.name}:`, (error as Error).message);
+    throw new Error(`API failed: ${(error as Error).message}`);
   }
   return articles;
 }
@@ -234,7 +236,7 @@ async function fetchCcxi(source: Source): Promise<Article[]> {
     }
     console.log(`✓ API: ${articles.length} articles from ${source.name}`);
   } catch (error) {
-    console.error(`✗ API failed for ${source.name}:`, (error as Error).message);
+    throw new Error(`API failed: ${(error as Error).message}`);
   }
   return articles;
 }
@@ -260,6 +262,7 @@ const NOISE_PATTERNS = [
 function isNoiseLink(title: string, href: string): boolean {
   if (!title || title.length < MIN_TITLE_LEN || title.length > MAX_TITLE_LEN) return true;
   if (!href || href === '#') return true;
+  if (editorialExclusionReason(title, href)) return true;
   return NOISE_PATTERNS.some(p => p.test(title) || p.test(href));
 }
 
@@ -275,7 +278,9 @@ function genericExtract($: cheerio.CheerioAPI, source: Source, baseUrl: string):
       // For some selectors, the link is a child <a> tag
       const $link = $el.is('a') ? $el : $el.find('a').first();
       const href = $link.attr('href');
-      const title = $link.text().trim().replace(/\s+/g, ' ');
+      const textTitle = $link.text().trim().replace(/\s+/g, ' ');
+      const attributeTitle = ($link.attr('title') || '').trim().replace(/\s+/g, ' ');
+      const title = attributeTitle.length > textTitle.length ? attributeTitle : textTitle;
 
       if (!href || isNoiseLink(title, href)) return;
       const link = resolveUrl(baseUrl, href);
@@ -302,7 +307,9 @@ function genericExtract($: cheerio.CheerioAPI, source: Source, baseUrl: string):
     $('a').each((_i, el) => {
       const $el = $(el);
       const href = $el.attr('href');
-      const title = $el.text().trim().replace(/\s+/g, ' ');
+      const textTitle = $el.text().trim().replace(/\s+/g, ' ');
+      const attributeTitle = ($el.attr('title') || '').trim().replace(/\s+/g, ' ');
+      const title = attributeTitle.length > textTitle.length ? attributeTitle : textTitle;
 
       if (!href || isNoiseLink(title, href)) return;
 
@@ -355,7 +362,7 @@ async function fetchHtmlContent(source: Source): Promise<Article[]> {
       },
       signal: AbortSignal.timeout(SOURCE_PAGE_TIMEOUT_MS),
     });
-    const html = await response.text();
+    const html = await readHtmlResponse(response as unknown as Response);
     const $ = cheerio.load(html);
 
     const articles = genericExtract($, source, source.url);
@@ -365,8 +372,7 @@ async function fetchHtmlContent(source: Source): Promise<Article[]> {
     console.log(`✓ HTML: ${limited.length} articles from ${source.name}`);
     return limited;
   } catch (error) {
-    console.error(`✗ HTML failed for ${source.name}:`, (error as Error).message);
-    return [];
+    throw new Error(`HTML failed: ${(error as Error).message}`);
   }
 }
 
@@ -396,7 +402,7 @@ export async function runFetch() {
     await supabase.from('sources').update({ last_fetched_at: now }).eq('id', source.id);
     const payload = outcome === 'success'
       ? { last_fetch_status: outcome, last_fetch_error: null, last_fetch_article_count: fetched, last_fetch_new_article_count: inserted, consecutive_failures: 0 }
-      : { last_fetch_status: outcome, last_fetch_error: (message || 'Unknown fetch error').substring(0, 500), last_fetch_article_count: fetched, last_fetch_new_article_count: inserted, consecutive_failures: (source as any).consecutive_failures ? (source as any).consecutive_failures + 1 : 1 };
+      : { last_fetch_status: outcome, last_fetch_error: (message || 'Unknown fetch error').substring(0, 500), last_fetch_article_count: fetched, last_fetch_new_article_count: inserted, consecutive_failures: (source.consecutive_failures || 0) + 1 };
     if (extendedHealthColumnsAvailable === false) return;
     const { error: healthError } = await supabase.from('sources').update(payload).eq('id', source.id);
     if (healthError && /(column .* does not exist|could not find the .* column)/i.test(healthError.message)) {
@@ -430,7 +436,10 @@ export async function runFetch() {
     const relevanceResults = await Promise.all(
       articles.map(async (a) => ({
         article: a,
-        rel: await isRelevant(a.title, a.content || a.excerpt || '', { sourceId: source.id }),
+        rel: await isRelevant(a.title, a.content || a.excerpt || '', {
+          sourceId: source.id,
+          url: a.link,
+        }),
       }))
     );
     const passed: Article[] = [];
@@ -494,8 +503,7 @@ export async function runFetch() {
 }
 
 // Only run when executed directly (tsx), not when imported
-const isMain = typeof process !== 'undefined' &&
-  process.argv[1] && /fetch-sources/.test(process.argv[1]);
+const isMain = isScriptInvoked(/fetch-sources/);
 if (isMain) {
   keepProcessAlive(runFetch()).catch((error) => {
     console.error(error);

@@ -3,10 +3,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import type { Metadata } from 'next';
-import * as cheerio from 'cheerio';
-import { extractContentHtml, extractPlainText, extractMetaDescription } from '@/lib/extract-content';
-import { fetchSourceBody } from '@/lib/fetch-source-body';
-import { assessContentQuality } from '@/lib/content-quality';
+import { fetchArticleContent } from '@/lib/article-content';
+import { assessContentQuality, contentQualityFields } from '@/lib/content-quality';
 import { formatRelativeTime, formatDateSafe } from '@/lib/date-utils';
 import AppShell from '@/components/AppShell';
 
@@ -39,55 +37,6 @@ function extractExcerptFromContent(content: string): string {
   }
   if (sentences.length === 0) return content.substring(0, 200);
   return sentences.join('');
-}
-
-/** 从URL实时抓取完整正文（HTML版 + 纯文本版） */
-async function fetchFullContent(url: string): Promise<{ html: string; text: string; coverImage: string | null } | null> {
-  try {
-    const sourceHtml = await fetchSourceBody(url);
-    const res = sourceHtml ? null : await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-      },
-      signal: AbortSignal.timeout(15000),
-      cache: 'no-store',
-    });
-    if (res && !res.ok) return null;
-
-    // ── 防止 PDF / 二进制 / 非 HTML 内容污染正文 ──
-    const contentType = res ? (res.headers.get('content-type') || '').toLowerCase() : 'text/html';
-    if (res && (
-      contentType.includes('application/pdf')
-      || contentType.includes('application/octet-stream')
-      || contentType.startsWith('image/')
-      || contentType.startsWith('video/')
-      || (!contentType.includes('text/') && !contentType.includes('html') && !contentType.includes('xml'))
-    )) {
-      return null;
-    }
-
-    const rawHtml = sourceHtml || await res!.text();
-
-    // ── 二次保险：即使 Content-Type 蒙混过关，%PDF 开头一律拦截 ──
-    if (rawHtml.trimStart().startsWith('%PDF')) {
-      return null;
-    }
-    const $ = cheerio.load(rawHtml);
-    const { html, coverImage } = extractContentHtml($, url);
-    if (!html || html.length < 50) {
-      // 正文提取失败（JS 渲染站）：meta description 兜底当摘要
-      const metaDesc = extractMetaDescription($);
-      if (metaDesc) return { html: '', text: metaDesc, coverImage };
-      return null;
-    }
-
-    const text = extractPlainText(html);
-    return { html, text, coverImage };
-  } catch {
-    return null;
-  }
 }
 
 interface PageProps {
@@ -142,15 +91,17 @@ export default async function ArticleDetailPage({ params }: PageProps) {
     || (content.length < 3000 && !/[。！？）》"']\s*$/.test(content.trim())));
 
   if (needsFetch) {
-    const live = await fetchFullContent(article.link);
+    const live = await fetchArticleContent(article.link);
     if (live) {
       contentHtml = live.html;
       content = live.text;
       if (!coverImage && live.coverImage) coverImage = live.coverImage;
       // Persist for next visit
+      const storedText = live.text.substring(0, 5000);
       const updatePayload: Record<string, any> = {
-        content: live.text.substring(0, 5000),
+        content: storedText,
         content_html: live.html,
+        ...contentQualityFields({ content: storedText, content_html: live.html }),
       };
       if (coverImage) updatePayload.cover_image = coverImage;
       await supabase.from('articles').update(updatePayload).eq('id', article.id);

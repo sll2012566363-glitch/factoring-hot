@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
   const { data: articles, error } = await adminClient
     .from('articles')
     .select('*')
-    .eq('is_selected', true)
     .eq('pre_filtered', true)
     .eq('status', 'selected')
     .eq('is_selected', true)

@@ -4,39 +4,16 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import { keepProcessAlive } from '../lib/keep-process-alive';
+import { isScriptInvoked } from '../lib/script-entry';
+import { titleSimilarity } from '../lib/title-similarity';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const SIMILARITY_THRESHOLD = 0.42; // 二元组 Jaccard 阈值
+const SIMILARITY_THRESHOLD = 0.4; // 二元组 Jaccard 阈值
 const CLUSTER_WINDOW_DAYS = 14;    // 只聚类最近 N 天的文章
-
-// ── Bigram Jaccard Similarity ─────────────────────────
-
-function getBigrams(text: string): Set<string> {
-  const bigrams = new Set<string>();
-  for (let i = 0; i < text.length - 1; i++) {
-    bigrams.add(text.substring(i, i + 2));
-  }
-  return bigrams;
-}
-
-function jaccardSimilarity(a: string, b: string): number {
-  if (!a || !b) return 0;
-  const setA = getBigrams(a);
-  const setB = getBigrams(b);
-  if (setA.size === 0 || setB.size === 0) return 0;
-
-  let intersection = 0;
-  for (const bg of setA) {
-    if (setB.has(bg)) intersection++;
-  }
-
-  const union = setA.size + setB.size - intersection;
-  return intersection / union;
-}
 
 // ── Union-Find for clustering ─────────────────────────
 
@@ -112,7 +89,7 @@ export async function runClustering() {
 
   for (let i = 0; i < articles.length; i++) {
     for (let j = i + 1; j < articles.length; j++) {
-      const sim = jaccardSimilarity(articles[i].title, articles[j].title);
+      const sim = titleSimilarity(articles[i].title, articles[j].title);
       if (sim >= SIMILARITY_THRESHOLD) {
         uf.union(articles[i].id, articles[j].id);
       }
@@ -186,8 +163,7 @@ export async function runClustering() {
   return { clusters: clusterCount, articles: articles.length };
 }
 
-const isMain = typeof process !== 'undefined' &&
-  process.argv[1] && /cluster-events/.test(process.argv[1]);
+const isMain = isScriptInvoked(/cluster-events/);
 if (isMain) {
   keepProcessAlive(runClustering()).catch((error) => {
     console.error(error);

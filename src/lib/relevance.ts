@@ -90,7 +90,7 @@ const SITE_FURNITURE_RE = /^(English|首页|时政要闻|总行新闻|党建动�
 // 只是标题里带党建框架语、实际是行业专家观点/分析文章的内容被误杀
 const ORG_INTERNAL_RE = /(党委召开|党支部.{0,10}(活动|会议|主题)|理论学习中心组|纪检工作|庆祝中国共产党成立|主题党日|志愿服务显担当|参观.{0,6}(中共|党史)|专业委员会$)/;
 
-function isSiteNoise(title: string): boolean {
+export function isSiteNoise(title: string): boolean {
   const t = title.trim();
   return NAV_NOISE_RE.test(t) || SITE_FURNITURE_RE.test(t) || ORG_INTERNAL_RE.test(t);
 }
@@ -99,10 +99,26 @@ function isSiteNoise(title: string): boolean {
 // 这些标题特征几乎只出现在"实操课/研修班/总裁班/招商会/白皮书领取"等
 // 商业推广页，正文常为空壳或留资表单，与行业资讯无关，无论关键词怎么
 // 命中一律拦截（优先级高于白名单信源豁免）
-const AD_BLACKLIST_RE = /(实操|培训|研修|总裁|私董|内训|特训)\s*(课|班)|招生|报名\s*(截止|进行中|中)?|课纲|学费|讲师\s*(阵容|介绍)?|大咖\s*(分享|授课|来了)?|席位|私享|闭门会|招商会|白皮书\s*领取|资料包\s*领取|扫码\s*领取|免费\s*领取?|加微信|进群|留资|立即咨询|预约\s*(咨询|报名)/;
+const AD_BLACKLIST_RE = /(实操|实战|培训|研修|总裁|私董|内训|特训)\s*(课|班)|关于(举办|开展).{0,40}(培训|研修|辅导|宣讲)|(?:培训|辅导)(?:通知|会|活动)|【活动通知】|招生|报名\s*(截止|进行中|中)?|课纲|学费|讲师\s*(阵容|介绍)?|大咖\s*(分享|授课|来了)?|席位|私享|闭门会|招商会|白皮书\s*领取|资料包\s*领取|扫码\s*领取|免费\s*领取?|加微信|进群|留资|立即咨询|预约\s*(咨询|报名)/;
 
-function isTrainingAd(title: string): boolean {
+export function isTrainingAd(title: string): boolean {
   return AD_BLACKLIST_RE.test(title.trim());
+}
+
+const TRAINING_URL_RE = /(?:^|[/.?=&_-])(peixun|training|course|kecheng|video)(?:[/.?=&_-]|$)/i;
+
+export function isMalformedTitle(title: string): boolean {
+  const value = title.trim();
+  return !value || value.includes('�') || (value.match(/\?{3,}/)?.length ?? 0) > 0;
+}
+
+export function editorialExclusionReason(title: string, url = ''):
+  'malformed_title' | 'site_noise' | 'training_ad' | 'training_url' | null {
+  if (isMalformedTitle(title)) return 'malformed_title';
+  if (isSiteNoise(title)) return 'site_noise';
+  if (isTrainingAd(title)) return 'training_ad';
+  if (url && TRAINING_URL_RE.test(url)) return 'training_url';
+  return null;
 }
 
 // ---- 保理/供应链金融专业信源白名单 ----
@@ -206,15 +222,11 @@ async function llmJudge(
 export async function isRelevant(
   title: string,
   content: string,
-  opts?: { enableLLM?: boolean; signal?: AbortSignal; sourceId?: string },
+  opts?: { enableLLM?: boolean; signal?: AbortSignal; sourceId?: string; url?: string },
 ): Promise<RelevanceResult> {
-  if (isSiteNoise(title)) {
-    return { relevant: false, method: 'skipped', score: 0, reason: 'site_noise' };
-  }
-
-  // 课程 / 培训广告 / 招商引流：明确拦截，不浪费 LLM 调用
-  if (isTrainingAd(title)) {
-    return { relevant: false, method: 'skipped', score: 0, reason: 'training_ad' };
+  const exclusion = editorialExclusionReason(title, opts?.url);
+  if (exclusion) {
+    return { relevant: false, method: 'skipped', score: 0, reason: exclusion };
   }
 
   const text = `${title}\n${stripHtml(content || '')}`;

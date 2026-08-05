@@ -26,7 +26,24 @@ export async function fetchSourceBody(url: string): Promise<string | null> {
       return response.ok && payload.code === 0 && payload.data?.content ? payload.data.content : null;
     }
 
-    if (parsed.hostname.endsWith('syblxh.org.cn')) {
+    if (parsed.hostname === 'www.szsyblxh.org.cn' || parsed.hostname === 'szsyblxh.org.cn') {
+      const newsid = parsed.searchParams.get('newsid');
+      if (!newsid) return null;
+      const endpoint = new URL('https://s143js.nicebox.cn/sysTools.php');
+      endpoint.search = new URLSearchParams({
+        mod: 'viewsConn', rtype: 'json', idweb: '58963',
+        viewid: 'newsDetail_style_01_1746604478645', name: 'newsDetail', style: 'style_01',
+        langid: '0', pageid: '875615', viewCtrl: 'newsDetail', isfb: '1', newsid,
+      }).toString();
+      const response = await fetch(endpoint, {
+        headers: { 'Referer': parsed.origin + '/', 'User-Agent': 'Mozilla/5.0 (compatible; FactoringHot/1.0)' },
+        signal: AbortSignal.timeout(15000),
+      });
+      const payload = await response.json() as { html?: string };
+      return response.ok && payload.html ? payload.html : null;
+    }
+
+    if (parsed.hostname === 'www.syblxh.org.cn' || parsed.hostname === 'syblxh.org.cn') {
       const newsid = parsed.searchParams.get('newsid');
       const pageid = parsed.pathname.match(/\/(\d+)-\d+\.html$/)?.[1];
       if (!newsid || !pageid) return null;

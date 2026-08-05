@@ -8,11 +8,13 @@ export interface ContentQuality {
   reason: string;
 }
 
-// 前台展示采用宽松门槛：抓到正文或较完整摘要即可进入信息流。
-// 原文链接仍作为兜底，避免因页面结构差异导致整站无内容。
-export const FULL_TEXT_MIN_LENGTH = 40;
-export const FULL_HTML_MIN_LENGTH = 0;
-export const FULL_PARAGRAPH_MIN_COUNT = 0;
+// “全文”是前台承诺，不可把 meta description 或几十字导语当作正文。
+// 纯文本达到 300 字可独立通过；较短公告须同时具备正文 HTML 结构。
+export const FULL_TEXT_MIN_LENGTH = 300;
+export const STRUCTURED_TEXT_MIN_LENGTH = 150;
+export const FULL_HTML_MIN_LENGTH = 300;
+export const FULL_PARAGRAPH_MIN_COUNT = 1;
+export const SUMMARY_TEXT_MIN_LENGTH = 80;
 
 function plainText(value?: string | null): string {
   return (value || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -36,10 +38,15 @@ export function assessContentQuality(article: { content?: string | null; content
   const htmlLength = html.trim().length;
   const paragraphCount = countParagraphs(html, text);
 
-  if (textLength >= FULL_TEXT_MIN_LENGTH && htmlLength >= FULL_HTML_MIN_LENGTH && paragraphCount >= FULL_PARAGRAPH_MIN_COUNT) {
+  const hasLongText = textLength >= FULL_TEXT_MIN_LENGTH;
+  const hasStructuredShortBody = textLength >= STRUCTURED_TEXT_MIN_LENGTH
+    && htmlLength >= FULL_HTML_MIN_LENGTH
+    && paragraphCount >= FULL_PARAGRAPH_MIN_COUNT;
+
+  if (hasLongText || hasStructuredShortBody) {
     return { tier: 'full', textLength, htmlLength, paragraphCount, reason: '全文已收录并通过结构校验' };
   }
-  if (textLength >= 80) {
+  if (textLength >= SUMMARY_TEXT_MIN_LENGTH) {
     return { tier: 'summary', textLength, htmlLength, paragraphCount, reason: '仅收录摘要，未达到站内全文标准' };
   }
   return { tier: 'external', textLength, htmlLength, paragraphCount, reason: '未收录可验证正文，仅保留原文线索' };
@@ -47,6 +54,15 @@ export function assessContentQuality(article: { content?: string | null; content
 
 export function hasFullContent(article: { content?: string | null; content_html?: string | null }): boolean {
   return assessContentQuality(article).tier === 'full';
+}
+
+export function contentQualityFields(article: { content?: string | null; content_html?: string | null }) {
+  const quality = assessContentQuality(article);
+  return {
+    content_quality: quality.tier,
+    content_word_count: quality.textLength,
+    content_checked_at: new Date().toISOString(),
+  };
 }
 
 export function partitionByContentQuality<T extends { content?: string | null; content_html?: string | null }>(articles: T[]) {

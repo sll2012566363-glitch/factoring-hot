@@ -80,19 +80,21 @@ factoring-hot/
 │   ├── lib/
 │   │   ├── supabase.ts       # Supabase 客户端（public + admin）
 │   │   ├── classifier.ts     # 文章五分类分类器
-│   │   ├── generate-report.ts # 日报生成逻辑（被 API 路由使用）
+│   │   ├── article-content.ts # 统一正文抓取与提取
+│   │   ├── content-policy.ts # 统一选稿状态与评分门槛
+│   │   ├── content-quality.ts # 确定性正文质量契约
 │   │   └── public-api-utils.ts # 公开API工具（限流/ETag/游标/RSS构建）
 │   ├── scripts/              # ⭐ 管道脚本（GitHub Actions 调用）
-│   │   ├── run-pipeline.ts   # 管道入口：5步串行执行
+│   │   ├── run-pipeline.ts   # 管道入口：6步串行、失败即停
 │   │   ├── fetch-sources.ts  # Step 1: 从48个信源抓取文章
 │   │   ├── pre-filter.ts     # Step 2: 关键词+LLM相关性过滤
 │   │   ├── enrich-articles.ts # Step 3: 正文补全+日期提取
 │   │   ├── llm-score.ts      # Step 4: LLM五维度评分
-│   │   ├── cluster-events.ts # Step 5: bigram Jaccard话题聚类
+│   │   ├── reconcile-selection.ts # Step 5: 统一策略校准状态
+│   │   ├── cluster-events.ts # Step 6: bigram Jaccard话题聚类
 │   │   ├── generate-reports.ts # 日报/周报/月刊生成（CLI）
 │   │   ├── init-sources.ts   # 初始化信源数据到数据库
 │   │   ├── cleanup.ts        # 清理30天前旧数据
-│   │   ├── score-articles.ts # ⚠️ 旧版评分（已废弃，用 llm-score.ts）
 │   │   ├── reclassify.ts     # 重新分类已有文章
 │   │   └── backfill-excerpts.ts # 补填摘要
 │   └── types/index.ts        # TypeScript 类型定义
@@ -213,21 +215,11 @@ NEXT_PUBLIC_SITE_NAME=保理 HOT
 
 ### 🔴 需要修复
 
-1. **`/archive` 归档页是空壳** — 只显示占位文字，没有接入日报/周报/月刊数据。应改造成报告归档中心，列出所有历史报告。
-
-2. **月刊 `editorial_board` 从未填充** — monthly_reports 表有此字段，月报配置中有主编"田江涛"、副主编"沈龙龙（Leo）"，但 `generate-reports.ts` 和 `monthly/route.ts` 都没有写入此字段。
-
-3. **根目录 `scripts/` 有4个废弃脚本** — `scripts/fetch-sources.ts`、`scripts/ai-score.ts`、`scripts/cluster-events.ts`、`scripts/generate-report.ts` 是旧版代码，已被 `src/scripts/` 取代。应清理避免混淆。
-
-4. **`src/lib/supabase.ts` 导出的共享客户端未被 API 路由使用** — 每个 API 路由都自己 `createClient()`，共享的 `getSelectedArticles()`、`getAllArticles()` 等辅助函数无人调用。应统一引用。
+1. **公开 API 限流是内存级** — `public-api-utils.ts` 用 Map 做限流，Vercel serverless 多实例下限流只能作为轻量保护；高流量时应换持久化限流。
 
 ### 🟡 可以优化
 
-5. **首页 `/` 用 `any[]` 类型** — `page.tsx` 和 `DateGroup.tsx` 中文章用 `any[]` 而非 `Article[]`，丢失类型安全。
-
-6. **无自定义 404 页面** — 没有 `not-found.tsx`。
-
-7. **公开 API 限流是内存级** — `public-api-utils.ts` 用 Map 做限流，Vercel serverless 多实例下限流无效（60×N）。应换 Redis/Upstash。
+2. **部分历史维护脚本仍是一次性工具** — 运行前需先在预览或备份环境确认影响范围。
 
 8. **管道无并发保护** — `cron/run-pipeline/route.ts` 没有"正在运行"锁，如果上一次未结束又触发新一次会冲突。
 
@@ -259,8 +251,9 @@ npm run build
 # 初始化信源数据到数据库
 npm run init
 
-# 手动运行完整管道
-npx tsx src/scripts/run-pipeline.ts
+# 手动运行完整/实时管道
+npm run pipeline
+npm run pipeline:realtime
 
 # 单独运行某一步
 npx tsx src/scripts/fetch-sources.ts      # 抓取
@@ -270,10 +263,9 @@ npx tsx src/scripts/llm-score.ts          # LLM评分
 npx tsx src/scripts/cluster-events.ts     # 聚类
 
 # 生成报告
-npx tsx src/scripts/generate-reports.ts daily [date]
-npx tsx src/scripts/generate-reports.ts weekly [year] [week]
-npx tsx src/scripts/generate-reports.ts monthly [year] [month]
-npx tsx src/scripts/generate-reports.ts all              # 全部生成
+npm run report -- [date]
+npm run report:weekly -- [year] [week]
+npm run report:monthly -- [year] [month]
 
 # 清理旧数据
 npx tsx src/scripts/cleanup.ts

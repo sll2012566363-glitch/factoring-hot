@@ -44,7 +44,6 @@ export async function GET(
     .from('articles')
     .select('*')
     .eq('category', cat)
-    .eq('is_selected', true)
     .eq('pre_filtered', true)
     .eq('status', 'selected')
     .eq('is_selected', true)

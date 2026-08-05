@@ -36,12 +36,20 @@ export default function WeeklyReportPage() {
     async function loadList() {
       setLoading(true);
       try {
+        const params = new URLSearchParams(window.location.search);
+        const targetYear = Number(params.get('year'));
+        const targetWeek = Number(params.get('week'));
+        if (targetYear && targetYear !== currentYear) {
+          setCurrentYear(targetYear);
+          return;
+        }
         const res = await fetch(`/api/weekly?year=${currentYear}&limit=52`);
         if (res.ok) {
           const data = await res.json();
           setReports(data.reports || []);
-          // Auto-select latest if available and none selected
-          if (data.reports?.length > 0 && !selected) {
+          if (targetWeek) {
+            await loadDetail(currentYear, targetWeek);
+          } else if (data.reports?.length > 0 && !selected) {
             setSelected(data.reports[0]);
           }
         }

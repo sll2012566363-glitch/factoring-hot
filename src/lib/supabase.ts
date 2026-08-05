@@ -17,6 +17,8 @@ export async function getSelectedArticles(limit = 50, offset = 0): Promise<Artic
   const { data, error } = await supabase
     .from('articles')
     .select('*')
+    .eq('pre_filtered', true)
+    .eq('status', 'selected')
     .eq('is_selected', true)
     .order('pub_date', { ascending: false })
     .range(offset, offset + limit - 1);
@@ -52,6 +54,9 @@ export async function getArticleById(id: string): Promise<Article | null> {
     .from('articles')
     .select('*')
     .eq('id', id)
+    .eq('pre_filtered', true)
+    .eq('status', 'selected')
+    .eq('is_selected', true)
     .single();
 
   if (error) {

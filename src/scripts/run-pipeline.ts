@@ -1,5 +1,5 @@
 /**
- * 全链路爬虫管道：fetch → pre-filter → enrich → score → cluster
+ * 全链路爬虫管道：fetch → pre-filter → enrich → score → reconcile → cluster
  * 用于 cron 定时调用或手动一键运行
  */
 import { spawn } from 'child_process';
@@ -78,34 +78,39 @@ async function main() {
   }
 
   if (realtime) {
-    console.log('⚡ 实时更新模式（抓取 → 预筛 → 正文 → 评分）...\n');
-    const results = [
-      await runStep('1/4 抓取文章', 'src/scripts/fetch-sources.ts'),
-      await runStep('2/4 预筛过滤', 'src/scripts/pre-filter.ts'),
-      await runStep('3/4 充实正文', 'src/scripts/enrich-articles.ts'),
-      await runStep('4/4 LLM评分', 'src/scripts/llm-score.ts'),
-    ];
-    if (!results.every(Boolean)) process.exitCode = 1;
+    console.log('⚡ 实时更新模式（抓取 → 预筛 → 正文 → 评分 → 状态校准）...\n');
+    const steps = [
+      ['1/5 抓取文章', 'src/scripts/fetch-sources.ts'],
+      ['2/5 预筛过滤', 'src/scripts/pre-filter.ts'],
+      ['3/5 充实正文', 'src/scripts/enrich-articles.ts'],
+      ['4/5 LLM评分', 'src/scripts/llm-score.ts'],
+      ['5/5 状态校准', 'src/scripts/reconcile-selection.ts'],
+    ] as const;
+    for (const [name, script] of steps) {
+      if (!await runStep(name, script)) {
+        process.exitCode = 1;
+        return;
+      }
+    }
     return;
   }
 
   console.log('🚀 开始执行全链路管道...\n');
 
-  // Step 1: Fetch articles from sources
+  const steps = [
+    ['1/6 抓取文章', 'src/scripts/fetch-sources.ts'],
+    ['2/6 预筛过滤', 'src/scripts/pre-filter.ts'],
+    ['3/6 充实正文', 'src/scripts/enrich-articles.ts'],
+    ['4/6 LLM评分', 'src/scripts/llm-score.ts'],
+    ['5/6 状态校准', 'src/scripts/reconcile-selection.ts'],
+    ['6/6 事件聚类', 'src/scripts/cluster-events.ts'],
+  ] as const;
   const results: boolean[] = [];
-  results.push(await runStep('1/5 抓取文章', 'src/scripts/fetch-sources.ts'));
-
-  // Step 2: Pre-filter (关键词+LLM快筛，淘汰无关文章)
-  results.push(await runStep('2/5 预筛过滤', 'src/scripts/pre-filter.ts'));
-
-  // Step 3: Enrich articles (fetch body text + better dates)
-  results.push(await runStep('3/5 充实正文', 'src/scripts/enrich-articles.ts'));
-
-  // Step 4: Score articles with LLM
-  results.push(await runStep('4/5 LLM评分', 'src/scripts/llm-score.ts'));
-
-  // Step 5: Cluster events (bigram Jaccard similarity)
-  results.push(await runStep('5/5 事件聚类', 'src/scripts/cluster-events.ts'));
+  for (const [name, script] of steps) {
+    const ok = await runStep(name, script);
+    results.push(ok);
+    if (!ok) break;
+  }
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   if (results.every(Boolean)) {

@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { hasFullContent } from '@/lib/content-quality';
+import { MUST_READ_MIN_SCORE, PUBLISH_MIN_SCORE } from '@/lib/content-policy';
+import { argsAfterScript, isScriptInvoked } from '@/lib/script-entry';
+import { keepProcessAlive } from '@/lib/keep-process-alive';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -102,12 +105,12 @@ export async function generateDailyReport(dateStr?: string) {
   }
 
   // 三层日报：全文强相关精选、已终审动态、待终审原文线索。
-  const selected = selectedRows.filter((a) => (a.score || 0) >= 15);
-  const mustRead = selected.filter((a) => (a.score || 0) >= 30 && hasFullContent(a)).slice(0, DAILY_LIMITS.mustRead);
+  const selected = selectedRows.filter((a) => (a.score || 0) >= PUBLISH_MIN_SCORE && hasFullContent(a));
+  const mustRead = selected.filter((a) => (a.score || 0) >= MUST_READ_MIN_SCORE).slice(0, DAILY_LIMITS.mustRead);
   const mustReadIds = new Set(mustRead.map((a) => a.id));
   const industryUpdates = selected.filter((a) => !mustReadIds.has(a.id)).slice(0, DAILY_LIMITS.industryUpdates);
   const sourceSignals = pendingRows.slice(0, DAILY_LIMITS.sourceSignals);
-  const recentHighlights = recentRows.filter((a) => (a.score || 0) >= 15 && hasFullContent(a));
+  const recentHighlights = recentRows.filter((a) => (a.score || 0) >= PUBLISH_MIN_SCORE && hasFullContent(a));
   const articles = [...mustRead, ...industryUpdates];
   console.log(`Found ${mustRead.length} must-read, ${industryUpdates.length} industry updates and ${sourceSignals.length} pending signals for ${date}`);
 
@@ -253,7 +256,7 @@ export async function generateWeeklyReport(year: number, week: number) {
 
 // ── Monthly Report ─────────────────────────────────────
 
-async function generateMonthlyReport(year: number, month: number) {
+export async function generateMonthlyReport(year: number, month: number) {
   console.log(`📊 Generating monthly report for ${year}-${month}...`);
 
   const startDate = new Date(year, month - 1, 1);
@@ -271,16 +274,11 @@ async function generateMonthlyReport(year: number, month: number) {
 
   if (error || !rows) {
     console.error('Failed to fetch articles:', error);
-    return;
+    throw error || new Error('Failed to fetch monthly report articles');
   }
 
   const articles = rows.filter(hasFullContent);
   console.log(`Found ${articles.length} full-text scored articles for ${year}年${month}月`);
-
-  if (articles.length === 0) {
-    console.log('No articles for this month, skipping.');
-    return;
-  }
 
   const byCategory = (cat: string) => articles.filter(a => a.category === cat);
 
@@ -309,7 +307,7 @@ async function generateMonthlyReport(year: number, month: number) {
     report_title: `供应链和供应链金融前沿${year}年${monthName(month)}月刊`,
     report_date_range: {
       start: startDate.toISOString().split('T')[0],
-      end: endDate.toISOString().split('T')[0],
+      end: new Date(endDate.getTime() - 86400000).toISOString().split('T')[0],
     },
     section_frontier_interpretation: {
       title: '前沿解读',
@@ -333,6 +331,11 @@ async function generateMonthlyReport(year: number, month: number) {
     section_normative_documents: {
       title: '前沿规范文件',
       articles: byCategory('normative').slice(0, 10).map(articleCard),
+    },
+    editorial_board: {
+      chief_editor: '田江涛',
+      deputy_editors: ['沈龙龙（Leo）'],
+      editorial_members: [],
     },
     executive_summary: executiveSummary,
     monthly_overview: {
@@ -367,47 +370,50 @@ async function generateMonthlyReport(year: number, month: number) {
 
   if (insertError) {
     console.error('Failed to save monthly report:', insertError);
+    throw insertError;
   } else {
     console.log(`✅ Monthly report generated: ${report.report_title}`);
   }
+  return report;
 }
 
 // ── CLI ────────────────────────────────────────────────
 
-const args = process.argv.slice(2);
-const command = args[0];
+if (isScriptInvoked(/generate-reports/)) {
+  const args = argsAfterScript(/generate-reports/);
+  const command = args[0];
+  const fail = (error: unknown) => {
+    console.error(error);
+    process.exitCode = 1;
+  };
 
-if (command === 'daily') {
-  const date = args[1] || getBeijingDate().toISOString().split('T')[0];
-  generateDailyReport(date);
-} else if (command === 'weekly') {
-  const year = parseInt(args[1]) || getBeijingDate().getFullYear();
-  const week = parseInt(args[2]) || getISOWeekNumber(getBeijingDate());
-  generateWeeklyReport(year, week);
-} else if (command === 'monthly') {
-  const year = parseInt(args[1]) || getBeijingDate().getFullYear();
-  const month = parseInt(args[2]) || (getBeijingDate().getMonth() + 1);
-  generateMonthlyReport(year, month);
-} else if (command === 'all') {
-  // Generate all reports for current period
-  const bj = getBeijingDate();
-  const dateStr = bj.toISOString().split('T')[0];
-  const year = bj.getFullYear();
-  const month = bj.getMonth() + 1;
-  const week = getISOWeekNumber(bj);
+  if (command === 'daily') {
+    const date = args[1] || getBeijingDate().toISOString().split('T')[0];
+    keepProcessAlive(generateDailyReport(date)).catch(fail);
+  } else if (command === 'weekly') {
+    const year = parseInt(args[1]) || getBeijingDate().getFullYear();
+    const week = parseInt(args[2]) || getISOWeekNumber(getBeijingDate());
+    keepProcessAlive(generateWeeklyReport(year, week)).catch(fail);
+  } else if (command === 'monthly') {
+    const year = parseInt(args[1]) || getBeijingDate().getFullYear();
+    const month = parseInt(args[2]) || (getBeijingDate().getMonth() + 1);
+    keepProcessAlive(generateMonthlyReport(year, month)).catch(fail);
+  } else if (command === 'all') {
+    const bj = getBeijingDate();
+    const dateStr = bj.toISOString().split('T')[0];
+    const year = bj.getFullYear();
+    const month = bj.getMonth() + 1;
+    const week = getISOWeekNumber(bj);
 
-  console.log('🚀 Generating all reports...\n');
-  generateDailyReport(dateStr).then(() => {
-    return generateWeeklyReport(year, week);
-  }).then(() => {
-    return generateMonthlyReport(year, month);
-  }).then(() => {
-    console.log('\n✅ All reports generated!');
-  });
-} else {
-  console.log('Usage:');
-  console.log('  npm run report:daily -- [date]          # e.g. 2026-07-07');
-  console.log('  npm run report:weekly -- [year] [week]  # e.g. 2026 28');
-  console.log('  npm run report:monthly -- [year] [month] # e.g. 2026 7');
-  console.log('  npm run report:all                       # Generate all current reports');
+    console.log('🚀 Generating all reports...\n');
+    keepProcessAlive(generateDailyReport(dateStr)
+      .then(() => generateWeeklyReport(year, week))
+      .then(() => generateMonthlyReport(year, month))
+      .then(() => console.log('\n✅ All reports generated!'))).catch(fail);
+  } else {
+    console.log('Usage:');
+    console.log('  npm run report -- [date]');
+    console.log('  npm run report:weekly -- [year] [week]');
+    console.log('  npm run report:monthly -- [year] [month]');
+  }
 }

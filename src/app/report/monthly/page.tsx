@@ -35,9 +35,7 @@ export default function MonthlyReportPage() {
   const [selected, setSelected] = useState<MonthlyReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [generating, setGenerating] = useState(false);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-  const [genMonth, setGenMonth] = useState(new Date().getMonth() + 1);
 
   useEffect(() => {
     loadList();
@@ -46,11 +44,20 @@ export default function MonthlyReportPage() {
   async function loadList() {
     setLoading(true);
     try {
+      const params = new URLSearchParams(window.location.search);
+      const targetYear = Number(params.get('year'));
+      const targetMonth = Number(params.get('month'));
+      if (targetYear && targetYear !== currentYear) {
+        setCurrentYear(targetYear);
+        return;
+      }
       const res = await fetch(`/api/monthly?year=${currentYear}&limit=12`);
       if (res.ok) {
         const data = await res.json();
         setReports(data.reports || []);
-        if (data.reports?.length > 0 && !selected) {
+        if (targetMonth) {
+          await loadDetail(currentYear, targetMonth);
+        } else if (data.reports?.length > 0 && !selected) {
           setSelected(data.reports[0]);
         }
       }
@@ -68,29 +75,6 @@ export default function MonthlyReportPage() {
       }
     } catch { /* ignore */ }
     finally { setDetailLoading(false); }
-  }
-
-  async function handleGenerate() {
-    setGenerating(true);
-    try {
-      const res = await fetch('/api/monthly', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ year: currentYear, month: genMonth }),
-      });
-      if (res.ok) {
-        const result = await res.json();
-        setSelected(result.report);
-        await loadList(); // refresh sidebar
-      } else {
-        const err = await res.json();
-        alert(`生成失败：${err.error || '未知错误'}`);
-      }
-    } catch (e: any) {
-      alert(`生成失败：${e.message}`);
-    } finally {
-      setGenerating(false);
-    }
   }
 
   return (
@@ -123,32 +107,10 @@ export default function MonthlyReportPage() {
         </section>
       }
     >
-        <header className="page-intro flex items-end justify-between gap-4">
-          <div>
+        <header className="page-intro">
             <p className="page-eyebrow">Monthly insight</p>
             <h1 className="page-title">保理行业月度观察</h1>
             <p className="page-description">每月汇集高价值文章与趋势信号，形成可回顾的行业观察。</p>
-          </div>
-
-          {/* Generate controls */}
-          <div className="flex items-center gap-2">
-            <select
-              className="text-xs border border-gray-200 rounded px-2 py-1.5"
-              value={genMonth}
-              onChange={(e) => setGenMonth(Number(e.target.value))}
-            >
-              {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                <option key={m} value={m}>{m} 月</option>
-              ))}
-            </select>
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {generating ? '生成中...' : '生成月刊'}
-            </button>
-          </div>
         </header>
 
         <div className="min-w-0">

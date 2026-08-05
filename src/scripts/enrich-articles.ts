@@ -1,9 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
-import { fetch as undiciFetch } from 'undici';
-import * as cheerio from 'cheerio';
-import { extractContentHtml, extractPlainText, extractMetaDescription } from '../lib/extract-content';
+import { fetchArticleContent } from '../lib/article-content';
+import { contentQualityFields, hasFullContent } from '../lib/content-quality';
 import { keepProcessAlive } from '../lib/keep-process-alive';
-import { fetchSourceBody } from '../lib/fetch-source-body';
+import { isScriptInvoked } from '../lib/script-entry';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,153 +13,48 @@ interface Article {
   id: string;
   title: string;
   link: string;
-  content: string;
+  content: string | null;
+  content_html?: string | null;
   pub_date: string;
   status?: string | null;
-}
-
-/**
- * Extract pub date from page.
- */
-function extractPubDate($: cheerio.CheerioAPI): string | null {
-  const metaSelectors = [
-    'meta[name="publishdate"]', 'meta[name="pubdate"]', 'meta[name="publish_date"]',
-    'meta[name="publishDate"]', 'meta[name="article:published_time"]',
-    'meta[property="article:published_time"]', 'meta[property="og:article:published_time"]',
-    'meta[name="Date"]', 'meta[name="pub_date"]', 'meta[name="createtime"]',
-  ];
-  for (const sel of metaSelectors) {
-    const val = $(sel).attr('content');
-    if (val) {
-      const d = new Date(val);
-      if (!isNaN(d.getTime()) && isWithinSixMonths(d)) return d.toISOString();
-    }
-  }
-  const timeEl = $('time').first();
-  if (timeEl.length) {
-    const datetime = timeEl.attr('datetime') || timeEl.text().trim();
-    if (datetime) {
-      const d = new Date(datetime);
-      if (!isNaN(d.getTime()) && isWithinSixMonths(d)) return d.toISOString();
-    }
-  }
-  const bodyText = $('body').text();
-  const dateMatch = bodyText.match(/(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})[日]?/);
-  if (dateMatch) {
-    const year = parseInt(dateMatch[1]);
-    const month = parseInt(dateMatch[2]) - 1;
-    const day = parseInt(dateMatch[3]);
-    const d = new Date(year, month, day);
-    if (!isNaN(d.getTime()) && isWithinSixMonths(d)) return d.toISOString();
-  }
-  return null;
-}
-
-function isWithinSixMonths(date: Date): boolean {
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-  return date >= sixMonthsAgo && date <= new Date();
+  content_checked_at?: string | null;
 }
 
 async function enrichArticle(article: Article): Promise<{
+  title: string | null;
   content: string;
   content_html: string;
   excerpt: string;
   pub_date: string | null;
   cover_image: string | null;
 } | null> {
-  try {
-    const sourceHtml = await fetchSourceBody(article.link);
-    const response = sourceHtml ? null : await undiciFetch(article.link, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-      },
-      signal: AbortSignal.timeout(15000),
-    });
+  const fetched = await fetchArticleContent(article.link);
+  if (!fetched) return null;
 
-    if (response && !response.ok) {
-      console.log(`  HTTP ${response.status} for ${article.link}`);
-      return null;
-    }
-
-    // ── 防止 PDF / 二进制内容污染正文 ──
-    const ct = response ? (response.headers.get('content-type') || '').toLowerCase() : 'text/html';
-    if (response && (
-      ct.includes('application/pdf')
-      || ct.includes('application/octet-stream')
-      || ct.startsWith('image/')
-      || ct.startsWith('video/')
-      || (!ct.includes('text/') && !ct.includes('html') && !ct.includes('xml'))
-    )) {
-      console.log(`  ⏩ 跳过非HTML: ${ct} for ${article.title.substring(0, 30)}`);
-      return null;
-    }
-
-    const html = sourceHtml || await response!.text();
-
-    // 二次保险：即使 Content-Type 蒙混，%PDF 开头一律拦截
-    if (html.trimStart().startsWith('%PDF')) return null;
-    const $ = cheerio.load(html);
-
-    // Extract HTML content (preserving structure + images)
-    const { html: contentHtml, coverImage } = extractContentHtml($, article.link);
-
-    if (!contentHtml || contentHtml.length < 50) {
-      // 正文提取失败（JS 渲染站等）：用页面 meta description 兜底当摘要，
-      // 详情页至少显示一句官方摘要而不是"暂无正文内容"
-      const metaDesc = extractMetaDescription($);
-      if (metaDesc) {
-        console.log(`  正文不可得，meta description 兜底 (${metaDesc.length} 字) for ${article.title.substring(0, 30)}`);
-        return {
-          content: metaDesc,
-          content_html: '',
-          excerpt: metaDesc,
-          pub_date: extractPubDate($),
-          cover_image: coverImage,
-        };
-      }
-      console.log(`  Content too short for ${article.title.substring(0, 30)}`);
-      return null;
-    }
-
-    // Extract plain text for search/indexing
-    const plainText = extractPlainText(contentHtml);
-
-    // Cap plain text at 5000 chars, breaking at sentence boundary
-    const content = plainText.length > 5000
-      ? plainText.substring(0, plainText.lastIndexOf('。', 5000) + 1 || 5000)
-      : plainText;
-
-    // Generate excerpt from plain text
-    const excerptRaw = plainText.substring(0, 300);
-    const excerptEnd = Math.max(
-      excerptRaw.lastIndexOf('。'),
-      excerptRaw.lastIndexOf('！'),
-      excerptRaw.lastIndexOf('？'),
-    );
-    const excerpt = excerptEnd > 100 ? excerptRaw.substring(0, excerptEnd + 1) : excerptRaw;
-
-    const pubDate = extractPubDate($);
-
-    return { content, content_html: contentHtml, excerpt, pub_date: pubDate, cover_image: coverImage };
-  } catch (error) {
-    const msg = (error as Error).message;
-    console.log(`  Fetch error: ${msg.substring(0, 60)}`);
-    return null;
-  }
+  const content = fetched.text.length > 5000
+    ? fetched.text.substring(0, fetched.text.lastIndexOf('。', 5000) + 1 || 5000)
+    : fetched.text;
+  return {
+    title: fetched.title,
+    content,
+    content_html: fetched.html,
+    excerpt: fetched.excerpt,
+    pub_date: fetched.pubDate,
+    cover_image: fetched.coverImage,
+  };
 }
 
 export async function runEnrich() {
   console.log('📰 Starting article enrichment (with HTML preservation)...\n');
+  const retryBefore = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
   // Fetch articles with empty or null content, skipping pre-filtered-out articles
   const { data: nullArticles, error } = await supabase
     .from('articles')
-    .select('id, title, link, content, pub_date, status')
+    .select('id, title, link, content, content_html, content_checked_at, pub_date, status')
     .is('content', null)
-    .or('pre_filtered.eq.true,pre_filtered.is.null')
+    .eq('pre_filtered', true)
+    .or(`content_checked_at.is.null,content_checked_at.lt.${retryBefore}`)
     .limit(500);
 
   if (error) {
@@ -171,19 +65,21 @@ export async function runEnrich() {
   // Also fetch articles with empty string content
   const { data: emptyArticles } = await supabase
     .from('articles')
-    .select('id, title, link, content, pub_date, status')
+    .select('id, title, link, content, content_html, content_checked_at, pub_date, status')
     .eq('content', '')
-    .or('pre_filtered.eq.true,pre_filtered.is.null')
+    .eq('pre_filtered', true)
+    .or(`content_checked_at.is.null,content_checked_at.lt.${retryBefore}`)
     .limit(500);
 
   // Also fetch articles that have plain text content but no content_html yet
   const { data: noHtmlArticles } = await supabase
     .from('articles')
-    .select('id, title, link, content, pub_date, status')
+    .select('id, title, link, content, content_html, content_checked_at, pub_date, status')
     .is('content_html', null)
     .not('content', 'is', null)
     .neq('content', '')
-    .or('pre_filtered.eq.true,pre_filtered.is.null')
+    .eq('pre_filtered', true)
+    .or(`content_checked_at.is.null,content_checked_at.lt.${retryBefore}`)
     .limit(200);
 
   // Combine and deduplicate
@@ -214,17 +110,32 @@ export async function runEnrich() {
 
     if (!result) {
       failed++;
+      await supabase.from('articles').update(
+        contentQualityFields({ content: article.content, content_html: article.content_html }),
+      ).eq('id', article.id);
       console.log(`  ✗ Could not enrich\n`);
     } else {
       const updatePayload: Record<string, any> = {
         content: result.content,
         content_html: result.content_html,
         excerpt: result.excerpt,
+        ...contentQualityFields({ content: result.content, content_html: result.content_html }),
       };
+
+      if (
+        result.title
+        && /(?:\.{3}|…)$/.test(article.title)
+        && result.title.length > article.title.replace(/(?:\.{3}|…)$/, '').length
+      ) {
+        updatePayload.title = result.title;
+      }
 
       // A source adapter can recover a body after a prior contentless pass.
       // Reopen only those terminal no-content records for LLM scoring.
-      if (article.status === 'rejected' && result.content.length >= 20) {
+      if (article.status === 'rejected' && hasFullContent({
+        content: result.content,
+        content_html: result.content_html,
+      })) {
         updatePayload.status = 'pending';
         updatePayload.scoring_method = null;
         updatePayload.scored_at = null;
@@ -269,8 +180,7 @@ export async function runEnrich() {
   return { enriched, failed, total: toProcess.length };
 }
 
-const isMain = typeof process !== 'undefined' &&
-  process.argv[1] && /enrich-articles/.test(process.argv[1]);
+const isMain = isScriptInvoked(/enrich-articles/);
 if (isMain) {
   keepProcessAlive(runEnrich()).catch((error) => {
     console.error(error);

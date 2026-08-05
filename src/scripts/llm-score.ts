@@ -1,6 +1,15 @@
 export {};
 import { createClient } from '@supabase/supabase-js';
-import { hasFullContent } from '@/lib/content-quality';
+import { assessContentQuality, contentQualityFields } from '@/lib/content-quality';
+import {
+  applyObjectiveNewsFloor,
+  decideSelection,
+  MUST_READ_MIN_SCORE,
+  normalizeSelectionReason,
+  PUBLISH_MIN_SCORE,
+  SIGNAL_MIN_SCORE,
+} from '@/lib/content-policy';
+import { isScriptInvoked } from '@/lib/script-entry';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,6 +27,7 @@ interface Article {
   excerpt?: string | null;
   content_html?: string | null;
   score: number | null;
+  pre_filtered: boolean | null;
 }
 
 interface ScoreResult {
@@ -83,16 +93,16 @@ function readDimensions(payload: Record<string, unknown>, score: number): ScoreR
 
 async function scoreWithDeepSeek(article: Article): Promise<ScoreResult | null> {
   const contentSnippet = (article.content || article.excerpt || '').substring(0, 1000);
-  const prompt = `你是保理与供应链金融行业主编。请严格评估以下已收录正文或可靠摘要，而不是给出默认中高分。
+  const prompt = `你是保理、供应链金融与融资租赁行业主编。请严格评估以下已收录正文或可靠摘要，而不是给出默认中高分。
 
 五维评分各0-20分，score 必须严格等于五维之和：
 - frontier：独立分析、专业解释或重要数据
-- industry_model：保理/供应链金融业务模式、交易或科技实践
-- regulatory：直接涉及保理、应收账款融资、ABS、票据等的监管变化
+- industry_model：保理、供应链金融、融资租赁/金融租赁的业务模式、交易或科技实践
+- regulatory：直接涉及保理、应收账款融资、ABS、票据、融资租赁/金融租赁的监管变化
 - dispute：保理/融资租赁等具体争议、案例或风控教训
-- normative：可执行的规范文件、政策或司法规则
+- normative：上述行业可执行的规范文件、政策或司法规则
 
-校准：五维总分用于区分内容层级，不是传统百分制相关性分。30+为多维度的重要行业内容；15-29为具备明确业务事实的合格行业动态；8-14为存在业务关联但事实或正文不足的线索；低于8为无关、广告、导航或无实质信息。不得因出现“金融”“供应链”等泛词给分。
+校准：融资租赁/金融租赁是本站明确覆盖的相邻核心领域，不得仅因“不涉及保理”判为无关；但仍须有具体监管、交易、数据、案例或业务实践。五维总分用于区分内容层级，不是传统百分制相关性分。${MUST_READ_MIN_SCORE}+为多维度的重要行业内容；${PUBLISH_MIN_SCORE}-${MUST_READ_MIN_SCORE - 1}为具备明确业务事实的合格行业动态；${SIGNAL_MIN_SCORE}-${PUBLISH_MIN_SCORE - 1}为存在业务关联但事实或正文不足的线索；低于${SIGNAL_MIN_SCORE}为无关、广告、导航或无实质信息。不得因出现“金融”“供应链”等泛词给分。reason 必须与总分层级一致：score >= ${PUBLISH_MIN_SCORE} 时不得写“不符合收录/入选标准”，应说明其可核验事实及价值边界。
 
 标题：${article.title}
 内容：${contentSnippet || '无内容'}
@@ -111,11 +121,11 @@ async function scoreWithDeepSeek(article: Article): Promise<ScoreResult | null> 
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },
         temperature: 0.3,
-        // step-3.7-flash emits a private reasoning trace before JSON; 500 tokens
-        // truncates that trace and leaves message.content empty (finish=length).
-        max_tokens: 4096,
+        // step-3.7-flash emits a long private reasoning trace before JSON.
+        // 4096 still truncates some responses at 7k+ reasoning characters.
+        max_tokens: 8192,
       }),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(45000),
     });
 
     if (!response.ok) {
@@ -173,9 +183,9 @@ export async function runScore() {
   // body after an earlier failed attempt, so `score IS NULL` is authoritative.
   const { data: articles, error } = await supabase
     .from('articles')
-    .select('id, title, content, content_html, excerpt, score')
+    .select('id, title, content, content_html, excerpt, score, pre_filtered')
     .is('score', null)
-    .or('pre_filtered.is.null,pre_filtered.eq.true')
+    .eq('pre_filtered', true)
     .or('status.is.null,status.neq.rejected')
     .limit(Math.min(Math.max(Number(process.env.SCORE_LIMIT) || 200, 1), 200));
 
@@ -184,9 +194,9 @@ export async function runScore() {
     throw error;
   }
 
-  const sourceOnly = articles.filter(article => !hasFullContent(article));
-  const scoreable = articles.filter(article => hasFullContent(article) || `${article.content || ''} ${article.excerpt || ''}`.trim().length >= 40) as Article[];
-  const unscoreable = sourceOnly.filter(article => !scoreable.some(candidate => candidate.id === article.id));
+  const scoreable = articles.filter(article => assessContentQuality(article).tier !== 'external') as Article[];
+  const scoreableIds = new Set(scoreable.map(article => article.id));
+  const unscoreable = articles.filter(article => !scoreableIds.has(article.id));
   if (unscoreable.length > 0) {
     await Promise.all(unscoreable.map(article => supabase.from('articles').update({
       status: 'rejected', is_selected: false,
@@ -198,7 +208,7 @@ export async function runScore() {
   let scored = 0;
   let failed = 0;
   let skipped = 0;
-  const concurrency = Math.min(Math.max(Number(process.env.SCORE_CONCURRENCY) || 4, 1), 8);
+  const concurrency = Math.min(Math.max(Number(process.env.SCORE_CONCURRENCY) || 2, 1), 8);
 
   const processArticle = async (article: Article, index: number) => {
     const progress = `[${index + 1}/${scoreable.length}]`;
@@ -210,25 +220,30 @@ export async function runScore() {
       failed++;
       console.log(`  ✗ Failed, keeping existing score\n`);
     } else {
-      // 站内主资讯是“可读内容”承诺：评分合格但正文未抓到时只能保留原文线索。
-      const canPublishOnSite = result.score >= 15 && hasFullContent(article);
-      const reviewStatus = canPublishOnSite ? 'selected' : result.score >= 8 ? 'pending' : 'rejected';
+      const objective = applyObjectiveNewsFloor(article, result.score, result.dimensions);
+      const decision = decideSelection({
+        ...article,
+        score: objective.score,
+        scoring_method: 'llm',
+        ai_reason: result.reason,
+      });
       const updatePayload: Record<string, any> = {
-        score: result.score,
-        score_dimensions: result.dimensions,
+        score: objective.score,
+        score_dimensions: objective.dimensions,
         scoring_method: 'llm',
         scored_at: new Date().toISOString(),
-        // 15 分且正文完整才是合格动态；其余仅留在“原文线索”，不进入主资讯/周月报。
-        status: reviewStatus,
-        is_selected: canPublishOnSite,
+        status: decision.status,
+        is_selected: decision.isSelected,
+        ...contentQualityFields(article),
       };
 
       if (result.excerpt) {
         updatePayload.excerpt = result.excerpt;
       }
 
-      if (result.reason) {
-        updatePayload.ai_reason = result.reason;
+      const normalizedReason = normalizeSelectionReason(objective.score, result.reason, result.excerpt);
+      if (normalizedReason) {
+        updatePayload.ai_reason = normalizedReason;
       }
 
       const { error: updateError } = await supabase
@@ -241,8 +256,9 @@ export async function runScore() {
         failed++;
       } else {
         scored++;
-        const dim = result.dimensions;
-        console.log(`  ✓ Score: ${result.score} [F:${dim.frontier} M:${dim.industry_model} R:${dim.regulatory} D:${dim.dispute} N:${dim.normative}]`);
+        const dim = objective.dimensions;
+        const calibrationNote = objective.score !== result.score ? ` (objective floor from ${result.score})` : '';
+        console.log(`  ✓ Score: ${objective.score}${calibrationNote} [F:${dim.frontier} M:${dim.industry_model} R:${dim.regulatory} D:${dim.dispute} N:${dim.normative}]`);
         if (result.excerpt) {
           console.log(`    "${result.excerpt.substring(0, 60)}..."`);
         }
@@ -273,8 +289,7 @@ export async function runScore() {
   return { scored, failed, skipped: skipped + unscoreable.length, total: scoreable.length };
 }
 
-const isMain = typeof process !== 'undefined' &&
-  process.argv[1] && /llm-score/.test(process.argv[1]);
+const isMain = isScriptInvoked(/llm-score/);
 if (isMain) {
   // Keep the Node process alive until every concurrent API request and
   // database update has settled. A bare promise chain can otherwise let the

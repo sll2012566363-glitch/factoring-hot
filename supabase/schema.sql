@@ -49,6 +49,8 @@ CREATE TABLE IF NOT EXISTS articles (
   link TEXT NOT NULL UNIQUE,
   content TEXT,
   excerpt TEXT,
+  content_html TEXT,
+  cover_image TEXT,
   content_quality TEXT CHECK (content_quality IN ('full', 'summary', 'external')),
   content_word_count INTEGER,
   content_checked_at TIMESTAMPTZ,
@@ -146,6 +148,7 @@ CREATE TABLE IF NOT EXISTS topic_clusters (
 CREATE INDEX idx_topic_clusters_date ON topic_clusters(cluster_date DESC);
 CREATE INDEX idx_topic_clusters_score ON topic_clusters(max_score DESC);
 CREATE INDEX idx_topic_clusters_source_count ON topic_clusters(source_count DESC);
+CREATE INDEX idx_topic_clusters_primary_article_id ON topic_clusters(primary_article_id);
 
 COMMENT ON TABLE topic_clusters IS '话题聚类表（bigram Jaccard相似度聚类）';
 COMMENT ON COLUMN topic_clusters.primary_article_id IS '聚类中评分最高的文章ID';
@@ -304,25 +307,21 @@ ALTER TABLE weekly_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE monthly_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_archives ENABLE ROW LEVEL SECURITY;
 
--- Public read access
-CREATE POLICY "Public read access" ON sources FOR SELECT USING (true);
-CREATE POLICY "Public read access" ON articles FOR SELECT USING (true);
-CREATE POLICY "Public read access" ON events FOR SELECT USING (true);
-CREATE POLICY "Public read access" ON topic_clusters FOR SELECT USING (true);
-CREATE POLICY "Public read access" ON daily_reports FOR SELECT USING (true);
-CREATE POLICY "Public read access" ON weekly_reports FOR SELECT USING (true);
-CREATE POLICY "Public read access" ON monthly_reports FOR SELECT USING (true);
-CREATE POLICY "Public read access" ON report_archives FOR SELECT USING (true);
+-- Anonymous/authenticated clients are read-only; writes use service_role,
+-- which bypasses RLS by design.
+GRANT SELECT ON sources, articles, events, topic_clusters, daily_reports,
+  weekly_reports, monthly_reports, report_archives TO anon, authenticated;
+GRANT ALL ON sources, articles, events, topic_clusters, daily_reports,
+  weekly_reports, monthly_reports, report_archives TO service_role;
 
--- Service role full access
-CREATE POLICY "Service role full access" ON sources FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "Service role full access" ON articles FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "Service role full access" ON events FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "Service role full access" ON topic_clusters FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "Service role full access" ON daily_reports FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "Service role full access" ON weekly_reports FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "Service role full access" ON monthly_reports FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "Service role full access" ON report_archives FOR ALL USING (auth.role() = 'service_role');
+CREATE POLICY public_read ON sources FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY public_read ON articles FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY public_read ON events FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY public_read ON topic_clusters FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY public_read ON daily_reports FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY public_read ON weekly_reports FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY public_read ON monthly_reports FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY public_read ON report_archives FOR SELECT TO anon, authenticated USING (true);
 
 -- ========================================
 -- Initial Data: Insert Sources

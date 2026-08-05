@@ -581,7 +581,7 @@
     {
       "id": "cfec",
       "name": "中国服务贸易协会商业保理专业委员会",
-      "url": "https://www.cfiservice.com/page.php?cid=20",
+      "url": "http://www.cfiservice.com/page.php?cid=20",
       "type": "association",
       "category": "innovation",
       "priority": "T1",
@@ -607,7 +607,7 @@
     {
       "id": "szfla",
       "name": "深圳市融资租赁行业协会",
-      "url": "https://www.szfla.org/",
+      "url": "http://www.szfla.org/",
       "type": "association",
       "category": "market",
       "priority": "T1.5",

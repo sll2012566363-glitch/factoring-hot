@@ -33,8 +33,9 @@ export async function GET(request: NextRequest) {
     if (!process.env.LLM_API_KEY && !process.env.DEEPSEEK_API_KEY) throw new Error('LLM_API_KEY not configured');
     return (await import('@/scripts/llm-score')).runScore();
   });
-  const clusterOk = scoreOk && await runStep('cluster', async () => (await import('@/scripts/cluster-events')).runClustering());
-  const success = Boolean(fetchOk && enrichOk && scoreOk && clusterOk);
+  const reconcileOk = scoreOk && await runStep('reconcile', async () => (await import('@/scripts/reconcile-selection')).reconcileSelection());
+  const clusterOk = reconcileOk && await runStep('cluster', async () => (await import('@/scripts/cluster-events')).runClustering());
+  const success = Boolean(fetchOk && enrichOk && scoreOk && reconcileOk && clusterOk);
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
   return NextResponse.json({ success, elapsed_seconds: Number(elapsed), results }, { status: success ? 200 : 500 });

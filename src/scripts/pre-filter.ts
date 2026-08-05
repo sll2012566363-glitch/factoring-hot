@@ -6,7 +6,13 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import { keepProcessAlive } from '../lib/keep-process-alive';
-import { FACTORING_SOURCE_WHITELIST, matchesCandidateTopic, matchesTopicSignal } from '../lib/relevance';
+import {
+  editorialExclusionReason,
+  FACTORING_SOURCE_WHITELIST,
+  matchesCandidateTopic,
+  matchesTopicSignal,
+} from '../lib/relevance';
+import { isScriptInvoked } from '../lib/script-entry';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,65 +22,21 @@ const supabase = createClient(
 const LLM_API_URL = process.env.LLM_API_URL || 'https://api.deepseek.com/v1';
 const LLM_API_KEY = process.env.LLM_API_KEY || '';
 
-// ─── 高置信度关键词：标题或摘要含这些 → 直接通过 ─────────
-const HIGH_CONFIDENCE_KEYWORDS = [
-  '保理', '供应链金融', '反向保理', '明保实贷',
-  '保理融资', '保理合同', '保理公司', '商业保理', '银行保理',
-  '应收账款融资', '应收账款转让', '应收账款ABS', '应收账款资产支持',
-  '供应链ABS', '保理ABS',
-  '再保理', '联合保理', '池保理', '暗保理', '公开保理',
-  '有追索权保理', '无追索权保理', '保理纠纷', '保理争议',
-];
-
-// ─── 中置信度关键词：需要结合上下文判断 ─────────────────
-const MEDIUM_CONFIDENCE_KEYWORDS = [
-  '资产证券化', 'ABS', 'ABS发行', '资产支持证券',
-  '供应链', '产业链', '核心企业', '上下游',
-  '票据', '商票', '银票', '承兑汇票',
-  '动产融资', '存货融资', '预付款融资',
-  '融资租赁', '小额贷款', '融资担保',
-  '征信', '中征', '中登', '动产融资统一登记',
-  '金融租赁', '融资租赁公司', '售后回租', '租赁物', '租赁资产', '租赁业务', '设备融资',
-  '金融科技', '数字金融', '交易银行',
-];
-
-// ─── 排除关键词：含这些且无高/中置信度命中 → 直接淘汰 ─────
-const EXCLUDE_KEYWORDS = [
-  '娱乐', '明星', '八卦', '综艺', '选秀',
-  '体育', '足球', '篮球', '赛事', 'NBA',
-  '游戏', '手游', '电竞', '攻略',
-  '美食', '菜谱', '烹饪', '餐厅推荐',
-  '旅游', '景点', '民宿',
-  '养生', '保健', '减肥', '美容',
-  '房产', '楼盘', '户型', '装修',
-  '汽车', '车型', '试驾', '4S店',
-  '股市', '大盘', '涨停', '跌停', '个股推荐',
-  '彩票', '中奖', '双色球',
-  '婚恋', '相亲', '情感',
-];
-
 interface Article {
   id: string;
   title: string;
+  link: string;
   content: string | null;
   excerpt: string | null;
   source_id: string;
-}
-
-// ─── 课程 / 培训广告 / 招商引流黑名单：命中即淘汰，不浪费 LLM ─────────
-const AD_BLACKLIST_RE = /(实操|培训|研修|总裁|私董|内训|特训)\s*(课|班)|招生|报名\s*(截止|进行中|中)?|课纲|学费|讲师\s*(阵容|介绍)?|大咖\s*(分享|授课|来了)?|席位|私享|闭门会|招商会|白皮书\s*领取|资料包\s*领取|扫码\s*领取|免费\s*领取?|加微信|进群|留资|立即咨询|预约\s*(咨询|报名)/;
-
-function isTrainingAd(title: string): boolean {
-  return AD_BLACKLIST_RE.test(title.trim());
 }
 
 /**
  * 关键词快速过滤
  * @returns true=通过, false=淘汰, null=不确定需LLM
  */
-function keywordFilter(title: string, text: string, sourceId?: string): boolean | null {
-  // 课程 / 培训广告 / 招商引流：明确淘汰
-  if (isTrainingAd(title)) return false;
+function keywordFilter(title: string, text: string, sourceId?: string, link?: string): boolean | null {
+  if (editorialExclusionReason(title, link)) return false;
 
   const combined = `${title} ${text}`;
 
@@ -85,29 +47,6 @@ function keywordFilter(title: string, text: string, sourceId?: string): boolean 
   if (!matchesCandidateTopic(combined)) return false;
   if (matchesTopicSignal(combined)) return true;
   return null;
-
-  // 高置信度命中 → 直接通过
-  for (const kw of HIGH_CONFIDENCE_KEYWORDS) {
-    if (combined.includes(kw)) return true;
-  }
-
-  // 检查排除关键词
-  let excludeHits = 0;
-  for (const kw of EXCLUDE_KEYWORDS) {
-    if (combined.includes(kw)) excludeHits++;
-  }
-
-  // 中置信度命中 → 如果没被排除则通过
-  let mediumHits = 0;
-  for (const kw of MEDIUM_CONFIDENCE_KEYWORDS) {
-    if (combined.includes(kw)) mediumHits++;
-  }
-
-  if (mediumHits >= 2 && excludeHits === 0) return true;
-  if (mediumHits >= 1 && excludeHits === 0) return null; // 需要LLM确认
-  if (excludeHits >= 2 && mediumHits === 0) return false;
-
-  return null; // 交给LLM判断
 }
 
 /**
@@ -117,8 +56,8 @@ async function batchFilterWithLLM(articles: Article[]): Promise<Map<string, bool
   const results = new Map<string, boolean>();
 
   if (!LLM_API_KEY) {
-    console.log('  ⚠ LLM_API_KEY not set, skipping LLM filter (keeping all)');
-    for (const a of articles) results.set(a.id, true);
+    console.log('  ⚠ LLM_API_KEY not set; using deterministic core-topic fallback');
+    fallbackOnLLMFailure(articles, results);
     return results;
   }
 
@@ -189,10 +128,8 @@ ${articleList}
         }
       }
 
-      // 未返回结果的默认保留
-      for (const a of batch) {
-        if (!results.has(a.id)) results.set(a.id, true);
-      }
+      // 模型漏项时按确定性规则兜底，不能默认为通过。
+      fallbackOnLLMFailure(batch, results);
     } catch (error) {
       const msg = (error as Error).message;
       console.log(`  LLM batch error: ${msg.substring(0, 60)}, 保守处理本批：仅高置信关键词命中保留`);
@@ -215,8 +152,8 @@ ${articleList}
 function fallbackOnLLMFailure(batch: Article[], results: Map<string, boolean>) {
   for (const a of batch) {
     if (!results.has(a.id)) {
-      const t = keywordFilter(a.title, `${a.content || ''} ${a.excerpt || ''}`);
-      results.set(a.id, t === true);
+      const text = `${a.title} ${a.content || ''} ${a.excerpt || ''}`;
+      results.set(a.id, !editorialExclusionReason(a.title, a.link) && matchesTopicSignal(text));
     }
   }
 }
@@ -230,7 +167,7 @@ export async function runPreFilter() {
 
   const { data: articles, error } = await supabase
     .from('articles')
-    .select('id, title, content, excerpt, source_id')
+    .select('id, title, link, content, excerpt, source_id')
     .is('pre_filtered', null)
     .gte('pub_date', thirtyDaysAgo.toISOString())
     .order('pub_date', { ascending: false })
@@ -255,7 +192,7 @@ export async function runPreFilter() {
 
   for (const article of articles) {
     const text = `${article.content || ''} ${article.excerpt || ''}`;
-    const result = keywordFilter(article.title, text, article.source_id);
+    const result = keywordFilter(article.title, text, article.source_id, article.link);
 
     if (result === true) {
       passed.push(article.id);
@@ -326,8 +263,7 @@ export async function runPreFilter() {
   };
 }
 
-const isMain = typeof process !== 'undefined' &&
-  process.argv[1] && /pre-filter/.test(process.argv[1]);
+const isMain = isScriptInvoked(/pre-filter/);
 if (isMain) {
   keepProcessAlive(runPreFilter()).catch((error) => {
     console.error(error);
