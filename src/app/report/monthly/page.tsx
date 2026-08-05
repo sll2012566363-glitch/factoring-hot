@@ -107,10 +107,12 @@ export default function MonthlyReportPage() {
         </section>
       }
     >
-        <header className="page-intro">
+        <header className="page-intro flex items-end justify-between gap-4">
+          <div>
             <p className="page-eyebrow">Monthly insight</p>
             <h1 className="page-title">保理行业月度观察</h1>
             <p className="page-description">每月汇集高价值文章与趋势信号，形成可回顾的行业观察。</p>
+          </div>
         </header>
 
         <div className="min-w-0">
