@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireInternalApiKey } from '@/lib/api-auth';
+import { checkRateLimit } from '@/lib/public-api-utils';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,6 +9,8 @@ const supabase = createClient(
 );
 
 export async function GET(request: NextRequest) {
+  const rateBlocked = checkRateLimit(request);
+  if (rateBlocked) return rateBlocked;
   const searchParams = request.nextUrl.searchParams;
   // Use Beijing time for default date
   const now = new Date();
@@ -39,7 +42,9 @@ export async function GET(request: NextRequest) {
     isStale = report.report_date !== date;
   }
 
-  return NextResponse.json({ ...report, requested_date: date, is_stale: isStale });
+  return NextResponse.json({ ...report, requested_date: date, is_stale: isStale }, {
+    headers: { 'Cache-Control': 'public, max-age=120, s-maxage=300' },
+  });
 }
 
 export async function POST(request: NextRequest) {

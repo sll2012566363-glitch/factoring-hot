@@ -33,7 +33,7 @@ const CATEGORY_LABELS: Record<string, string> = {
  *   since    — ISO date string, return items after this date
  *   take     — page size 1-100 (default: 20)
  *   cursor   — opaque cursor from previous response
- *   q        — full-text search in title + content
+ *   q        — search in title, summary and full text
  */
 export async function GET(request: NextRequest) {
   // Rate limit check
@@ -77,20 +77,20 @@ export async function GET(request: NextRequest) {
   // Build query
   let query = adminClient
     .from('articles')
-    .select('id, title, link, excerpt, content, content_html, source_name, source_id, category, priority, score, score_dimensions, scoring_method, is_selected, event_id, event_title, pub_date, created_at', { count: 'exact' })
+    .select('id, title, link, excerpt, content, content_html, source_name, source_id, category, priority, score, score_dimensions, scoring_method, is_selected, event_id, event_title, pub_date, created_at, content_quality', { count: 'exact' })
     // pre-filter.ts 判不相关的文章排除展示
     .eq('pre_filtered', true)
-    .eq('status', 'selected')
-    .eq('is_selected', true)
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(take + 1); // fetch one extra to detect if there's a next page
 
-  // Mode filter
+  // Mode filter. "all" means all relevant, complete-text records; it can
+  // include pending records that are usable in the live research library.
   if (mode === 'selected') {
-    query = query.eq('is_selected', true);
+    query = query.eq('status', 'selected').eq('is_selected', true);
+  } else {
+    query = query.in('status', ['selected', 'pending']).eq('content_quality', 'full');
   }
-
   // Category filter
   if (category) {
     query = query.eq('category', category);
@@ -111,9 +111,11 @@ export async function GET(request: NextRequest) {
       .or(`created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`);
   }
 
-  // Full-text search (ilike on title, since Supabase doesn't have FTS without extensions)
+  // Lightweight multi-field search. Keep this route compatible with hosted
+  // Supabase instances where a text-search extension may not be enabled.
   if (q) {
-    query = query.ilike('title', `%${q}%`);
+    const safeQuery = q.replace(/[,%()]/g, ' ').trim().slice(0, 80);
+    if (safeQuery) query = query.or(`title.ilike.%${safeQuery}%,excerpt.ilike.%${safeQuery}%,content.ilike.%${safeQuery}%`);
   }
 
   const { data: articles, error, count } = await query;

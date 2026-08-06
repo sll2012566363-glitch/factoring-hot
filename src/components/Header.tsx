@@ -2,27 +2,30 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpenText, Bot, CircleHelp, FileClock, FileText, Flame, History, LayoutList, MessageSquareText, Rss, Sparkles, Tags } from 'lucide-react';
+import { Archive, BookOpenText, Bot, CircleHelp, FileClock, FileText, History, LayoutList, MessageSquareText, Rss, Search, Sparkles, Tags } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 
 const CONTENT_NAV = [
-  { href: '/', label: '精选', icon: Sparkles },
-  { href: '/all', label: '全部动态', icon: LayoutList },
+  { href: '/', label: '编辑精选', icon: Sparkles },
+  { href: '/all', label: '实时动态', icon: LayoutList },
+  { href: '/topics', label: '主题追踪', icon: Tags },
+];
+
+const INSIGHT_NAV = [
   { href: '/report', label: '行业日报', icon: FileText },
   { href: '/report/weekly', label: '周度复盘', icon: FileClock },
   { href: '/report/monthly', label: '月度观察', icon: BookOpenText },
-  { href: '/topics', label: '热门话题', icon: Tags },
+  { href: '/archive', label: '报告归档', icon: Archive },
 ];
 
 const MORE_NAV = [
   { href: '/agent', label: 'Agent 接入', icon: Bot },
   { href: '/about', label: '关于本站', icon: CircleHelp },
   { href: '/changelog', label: '更新日志', icon: History },
-  { href: '/archive', label: '报告归档', icon: BookOpenText },
   { href: '/feedback', label: '反馈与纠错', icon: MessageSquareText },
 ];
 
-function NavGroup({ title, items, pathname }: { title: string; items: typeof CONTENT_NAV; pathname: string }) {
+function NavGroup({ title, items, pathname }: { title: string; items: Array<{ href: string; label: string; icon: typeof Sparkles }>; pathname: string }) {
   return (
     <section className="side-nav-group">
       <p>{title}</p>
@@ -54,11 +57,12 @@ export default function Header() {
         <p className="brand-subtitle">保理与供应链金融<br />行业情报站</p>
         <nav>
           <NavGroup title="内容" items={CONTENT_NAV} pathname={pathname} />
+          <NavGroup title="行业洞察" items={INSIGHT_NAV} pathname={pathname} />
           <NavGroup title="接入与更多" items={MORE_NAV} pathname={pathname} />
         </nav>
         <div className="side-nav-bottom">
           <Link href="/agent" className="side-rss"><Rss size={14} /> RSS / API 开放接入</Link>
-          <ThemeToggle />
+          <div className="side-nav-tools"><Link href="/all" aria-label="搜索实时动态"><Search size={14} /> 搜索资料库</Link><ThemeToggle /></div>
           <small>Factoring HOT · since 2026</small>
         </div>
       </aside>

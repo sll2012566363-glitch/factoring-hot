@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowUpRight, Search, Sparkles } from 'lucide-react';
+import { ArrowUpRight, FileClock, LayoutList, Search, Sparkles, Tags } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import AppShell from '@/components/AppShell';
 import DateGroup from '@/components/DateGroup';
@@ -85,16 +85,16 @@ export default function HomeClient({ initialArticles, sourceBriefs, lastFetchedA
   return (
     <AppShell rail={rail}>
       <header className="page-intro">
-        <p className="page-eyebrow">精选 · 行业情报</p>
+        <p className="page-eyebrow">Editorial selection · Factoring HOT</p>
         <h1 className="page-title">今天，什么值得关注？</h1>
-        <p className="page-description">只展示已收录完整正文的行业情报；未达到全文标准的内容会明确作为原文线索分流。</p>
+        <p className="page-description">编辑精选只保留已完成正文核验、并与保理、供应链金融或融资租赁实质相关的行业信号。</p>
       </header>
 
       <section className="realtime-strip" aria-label="实时采集状态">
         <span className="realtime-dot" />
         <strong>实时采集</strong>
         <span>{lastFetchedAt ? `最近抓取 ${new Intl.DateTimeFormat('zh-CN', { timeZone: BEIJING_TIME_ZONE, hour: '2-digit', minute: '2-digit' }).format(new Date(lastFetchedAt))}` : '等待首次抓取'}</span>
-        <span>精选 {initialArticles.length} 篇</span>
+        <span>编辑精选 {initialArticles.length} 篇</span>
         {sourceBriefs.length > 0 && <span>待核实线索 {sourceBriefs.length} 条</span>}
       </section>
 
@@ -104,6 +104,24 @@ export default function HomeClient({ initialArticles, sourceBriefs, lastFetchedA
         <p>{focus.ai_reason || focus.excerpt || focus.content || '多源行业信息正在持续汇集。'}</p>
         <div className="hero-focus-meta"><span><strong>{focus.source_name}</strong></span><span>{Math.round(focus.score || 0)} 分关注度</span><Link href={`/article/${focus.id}`}>查看解读 <ArrowUpRight size={13} /></Link></div>
       </section>}
+
+      <section className="home-map" aria-label="信息入口">
+        <Link href="/all" className="home-map-card">
+          <span className="home-map-icon"><LayoutList size={17} /></span>
+          <span><strong>实时动态</strong><small>进入完整行业资料库，按关键词和分类检索</small></span>
+          <ArrowUpRight size={15} />
+        </Link>
+        <Link href="/topics" className="home-map-card">
+          <span className="home-map-icon"><Tags size={17} /></span>
+          <span><strong>主题追踪</strong><small>围绕应收账款、监管与融资租赁查看多信源事件</small></span>
+          <ArrowUpRight size={15} />
+        </Link>
+        <Link href="/report/weekly" className="home-map-card">
+          <span className="home-map-icon"><FileClock size={17} /></span>
+          <span><strong>行业洞察</strong><small>阅读周度复盘、月度观察和编辑判断</small></span>
+          <ArrowUpRight size={15} />
+        </Link>
+      </section>
 
       <section className="feed-toolbar">
         <div className="feed-tabs">

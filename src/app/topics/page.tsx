@@ -47,6 +47,8 @@ interface RelatedArticle {
 interface PrimaryArticle {
   id: string;
   pub_date: string;
+  content: string | null;
+  content_html: string | null;
 }
 
 export const dynamic = 'force-dynamic';
@@ -73,13 +75,13 @@ export default async function TopicsPage() {
   if (clusters && clusters.length > 0) {
     const { data: primaryRows } = await supabase
       .from('articles')
-      .select('id, pub_date')
+      .select('id, pub_date, content, content_html, excerpt')
       .in('id', clusters.map(cluster => cluster.primary_article_id))
       .gte('pub_date', cutoff)
       .eq('pre_filtered', true)
       .eq('status', 'selected')
       .eq('is_selected', true);
-    (primaryRows as PrimaryArticle[] | null)?.forEach(article => primaryDates.set(article.id, article.pub_date));
+    (primaryRows as PrimaryArticle[] | null)?.filter(hasFullContent).forEach(article => primaryDates.set(article.id, article.pub_date));
 
     // Only fetch related articles for clusters that have them
     hotTopics = await Promise.all(
@@ -123,11 +125,11 @@ export default async function TopicsPage() {
     <AppShell>
         <header className="page-intro flex items-end justify-between gap-4">
           <div>
-            <p className="page-eyebrow">Multi-source signals</p>
-            <h1 className="page-title">热门行业话题</h1>
-            <p className="page-description">近 14 天获得多个信源覆盖的事件，按覆盖广度与关注度排序。</p>
+            <p className="page-eyebrow">Topic tracking · Multi-source signals</p>
+            <h1 className="page-title">主题追踪</h1>
+            <p className="page-description">围绕保理、供应链金融和融资租赁的重要事件聚合多信源报道，按覆盖广度与关注度排序。</p>
           </div>
-          <Link href="/" className="soft-button whitespace-nowrap">返回精选</Link>
+          <Link href="/" className="soft-button whitespace-nowrap">返回编辑精选</Link>
         </header>
 
         {hotTopics.length === 0 ? (
