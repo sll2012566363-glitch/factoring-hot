@@ -11,8 +11,6 @@ jobs:
   report:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -45,11 +43,3 @@ jobs:
           LLM_API_URL: ${{ secrets.LLM_API_URL }}
           LLM_MODEL: ${{ secrets.LLM_MODEL }}
         run: npx tsx src/scripts/generate-reports.ts weekly
-
-      # 月度观察与日报、周报使用同一套审核后数据，每次报告任务都刷新当月快照，
-      # 避免月度页面长期停留在上一次手动生成结果。
-      - name: Generate current monthly report
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx tsx src/scripts/generate-reports.ts monthly

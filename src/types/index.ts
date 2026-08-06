@@ -36,6 +36,7 @@ export interface Article {
   event_title?: string;
   status?: 'pending' | 'selected' | 'rejected';
   is_selected?: boolean;
+  review_tier?: 'selected' | 'signal';
   created_at?: string;
 }
 

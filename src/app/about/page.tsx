@@ -1,4 +1,12 @@
+import { createClient } from '@supabase/supabase-js';
 import AppShell from '@/components/AppShell';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+);
+
+export const dynamic = 'force-dynamic';
 
 const STATS = [
   { value: '48', label: '权威信源' },
@@ -15,7 +23,16 @@ const STEPS = [
   { title: '生成', desc: '每天自动出日报，每周/每月出周报/月刊，摘要和推荐理由都是 AI 生成。' },
 ];
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const { data: sources } = await supabase
+    .from('sources')
+    .select('name,last_fetch_status,last_fetch_new_article_count,consecutive_failures,last_fetched_at')
+    .eq('active', true);
+  const sourceRows = sources || [];
+  const failedSources = sourceRows.filter(source => source.last_fetch_status === 'error');
+  const staleSources = sourceRows.filter(source => !source.last_fetched_at || Date.now() - new Date(source.last_fetched_at).getTime() > 2 * 60 * 60 * 1000);
+  const healthySources = sourceRows.length - failedSources.length;
+
   return (
     <AppShell>
         <header className="page-intro">
@@ -48,6 +65,19 @@ export default function AboutPage() {
               </li>
             ))}
           </ol>
+        </section>
+
+        <section className="surface p-5 mb-4">
+          <div className="flex items-start justify-between gap-4">
+            <div><h2 className="section-title mb-2">信源健康</h2><p className="text-sm text-[var(--muted)] leading-relaxed">抓取失败或超过 2 小时未更新的来源会在这里显示，文章数量为 0 不等于抓取失败。</p></div>
+            <span className={`content-proof ${failedSources.length ? 'review-tag' : ''}`}>{failedSources.length ? `${failedSources.length} 个需关注` : '运行正常'}</span>
+          </div>
+          <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+            <div className="rounded border border-[var(--line)] p-3"><strong className="block text-xl text-[var(--brand)]">{healthySources}</strong><span className="text-xs text-[var(--muted)]">正常来源</span></div>
+            <div className="rounded border border-[var(--line)] p-3"><strong className="block text-xl text-[var(--gold)]">{failedSources.length}</strong><span className="text-xs text-[var(--muted)]">抓取失败</span></div>
+            <div className="rounded border border-[var(--line)] p-3"><strong className="block text-xl text-[var(--muted)]">{staleSources.length}</strong><span className="text-xs text-[var(--muted)]">超过 2 小时</span></div>
+          </div>
+          {failedSources.length > 0 && <ul className="mt-4 space-y-2 text-xs text-[var(--muted)]">{failedSources.slice(0, 5).map(source => <li key={source.name} className="flex justify-between gap-3 border-t border-[var(--line)] pt-2"><span>{source.name}</span><span className="text-[var(--gold)]">连续失败 {source.consecutive_failures || 1} 次</span></li>)}</ul>}
         </section>
 
         <section className="surface p-5 mb-4">

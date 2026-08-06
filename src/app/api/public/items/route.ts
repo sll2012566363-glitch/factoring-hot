@@ -157,6 +157,7 @@ export async function GET(request: NextRequest) {
     scoreDimensions: a.score_dimensions || null,
     scoringMethod: a.scoring_method || null,
     selected: a.is_selected ?? false,
+    reviewTier: a.is_selected ? 'selected' : 'signal',
     eventId: a.event_id || null,
     eventTitle: a.event_title || null,
     contentTier: quality.tier,

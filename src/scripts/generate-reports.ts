@@ -34,10 +34,6 @@ function articleCard(a: any, reviewTier: 'selected' | 'signal' = 'selected') {
   };
 }
 
-function reportArticleCount(report: any): number {
-  return (report.sections || []).reduce((sum: number, section: any) => sum + (section.articles || []).length, 0);
-}
-
 async function existingReport(table: 'daily_reports' | 'weekly_reports' | 'monthly_reports', filters: Record<string, string | number>) {
   let query = supabase.from(table).select('*').limit(1);
   for (const [key, value] of Object.entries(filters)) query = query.eq(key, value);
@@ -452,7 +448,12 @@ if (isScriptInvoked(/generate-reports/)) {
   } else if (command === 'weekly') {
     const year = parseInt(args[1]) || getBeijingDate().getFullYear();
     const week = parseInt(args[2]) || getISOWeekNumber(getBeijingDate());
-    keepProcessAlive(generateWeeklyReport(year, week)).catch(fail);
+    // The existing GitHub Actions workflow invokes the weekly command only.
+    // Generate the open month here as well so monthly data stays fresh without
+    // requiring a second scheduler or a workflow-permission change.
+    const bj = getBeijingDate();
+    keepProcessAlive(generateWeeklyReport(year, week)
+      .then(() => generateMonthlyReport(bj.getFullYear(), bj.getMonth() + 1))).catch(fail);
   } else if (command === 'monthly') {
     const year = parseInt(args[1]) || getBeijingDate().getFullYear();
     const month = parseInt(args[2]) || (getBeijingDate().getMonth() + 1);

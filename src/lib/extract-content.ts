@@ -141,6 +141,11 @@ function sanitizeHtml($: cheerio.CheerioAPI, $root: any): void {
         $(el).removeAttr(key);
         continue;
       }
+      // Inline CSS can carry scriptable URLs or legacy expression() payloads.
+      if (/^style$/i.test(key) && /(expression\s*\(|url\s*\(\s*["']?\s*(?:javascript|vbscript|data):)/i.test(val)) {
+        $(el).removeAttr(key);
+        continue;
+      }
       // 2) URL 类属性拦截 javascript:/vbscript:/data: 协议
       if (
         /^(href|src|action|formaction|xlink:href|background|dynsrc|lowsrc|ping|poster|cite|data|usemap|longdesc)$/i.test(key)

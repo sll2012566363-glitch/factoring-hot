@@ -32,6 +32,8 @@ function toArticle(item: any): Article {
     ai_reason: item.ai_reason,
     scoring_method: item.scoringMethod || item.scoring_method,
     content_quality: item.contentTier || 'full',
+    review_tier: item.reviewTier || (item.selected === false ? 'signal' : 'selected'),
+    is_selected: item.selected,
   };
 }
 

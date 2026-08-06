@@ -21,6 +21,8 @@ const MAX_AMBIGUOUS_CANDIDATES_PER_SOURCE = 20;
 const MAX_ARTICLES_PER_SOURCE = 50;
 const MAX_HTML_PAGES_PER_SOURCE = 4;
 const HISTORICAL_LOOKBACK_DAYS = 60;
+const SOURCE_FAILURE_ALERT_THRESHOLD = 3;
+const SOURCE_FAILURE_HARD_THRESHOLD = 12;
 
 interface Source {
   id: string;
@@ -426,6 +428,7 @@ export async function runFetch() {
   let totalArticles = 0;
   let sourcesWithArticles = 0;
   let failedSources = 0;
+  const unhealthySources: Array<{ name: string; failures: number; error: string }> = [];
 
   // The first update works against the old schema too. Extended telemetry is
   // best-effort until the accompanying migration has been applied.
@@ -520,6 +523,13 @@ export async function runFetch() {
       failedSources++;
       const message = err instanceof Error ? err.message : String(err);
       console.error(`✗ Source failed for ${source.name}: ${message}`);
+      const failures = (source.consecutive_failures || 0) + 1;
+      if (failures >= SOURCE_FAILURE_ALERT_THRESHOLD) {
+        unhealthySources.push({ name: source.name, failures, error: message.substring(0, 180) });
+      }
+      if (failures >= SOURCE_FAILURE_HARD_THRESHOLD) {
+        console.error(`🚨 Critical source outage: ${source.name} has failed ${failures} consecutive times.`);
+      }
       await recordHealth(source, 'error', 0, 0, message);
     }
 
@@ -531,7 +541,14 @@ export async function runFetch() {
   console.log(`   Sources with articles: ${sourcesWithArticles}/${sources.length}`);
   console.log(`   Failed sources: ${failedSources}`);
   console.log(`   Total articles: ${totalArticles}`);
-  return { sourcesWithArticles, failedSources, totalArticles, totalSources: sources.length };
+  if (unhealthySources.length > 0) {
+    console.warn(`⚠ Source health warning: ${unhealthySources.length} source(s) have failed ${SOURCE_FAILURE_ALERT_THRESHOLD}+ consecutive times.`);
+    for (const source of unhealthySources) console.warn(`   - ${source.name}: ${source.failures} failures; ${source.error}`);
+  }
+  if (failedSources >= Math.max(12, Math.ceil(sources.length * 0.5))) {
+    throw new Error(`Source outage threshold exceeded: ${failedSources}/${sources.length} active sources failed.`);
+  }
+  return { sourcesWithArticles, failedSources, totalArticles, totalSources: sources.length, unhealthySources };
 }
 
 // Only run when executed directly (tsx), not when imported

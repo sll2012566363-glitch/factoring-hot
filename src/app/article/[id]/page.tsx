@@ -50,8 +50,8 @@ const getArticle = cache(async (id: string) => {
     .select('*')
     .eq('id', id)
     .eq('pre_filtered', true)
-    .eq('status', 'selected')
-    .eq('is_selected', true)
+    .in('status', ['selected', 'pending'])
+    .eq('content_quality', 'full')
     .single();
   return error ? null : data;
 });
@@ -133,6 +133,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
         <div className="article-source">
           <Link href="/" className="soft-button">返回精选</Link>
           <span className="feed-tag">{sectionName}</span>
+          {article.status === 'pending' && <span className="feed-tag review-tag">待复核线索</span>}
           <span>{article.source_name}</span>
           {article.score != null && (
             <span className="feed-item-score">{Math.round(article.score)} 分</span>
