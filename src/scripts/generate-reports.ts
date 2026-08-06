@@ -19,7 +19,7 @@ const DAILY_LIMITS = {
   sourceSignals: 8,
 };
 
-function articleCard(a: any) {
+function articleCard(a: any, reviewTier: 'selected' | 'signal' = 'selected') {
   return {
     id: a.id,
     title: a.title,
@@ -30,7 +30,26 @@ function articleCard(a: any) {
     excerpt: a.excerpt || (a.content || '').substring(0, 200),
     pub_date: a.pub_date,
     category: a.category,
+    review_tier: reviewTier,
   };
+}
+
+function reportArticleCount(report: any): number {
+  return (report.sections || []).reduce((sum: number, section: any) => sum + (section.articles || []).length, 0);
+}
+
+async function existingReport(table: 'daily_reports' | 'weekly_reports' | 'monthly_reports', filters: Record<string, string | number>) {
+  let query = supabase.from(table).select('*').limit(1);
+  for (const [key, value] of Object.entries(filters)) query = query.eq(key, value);
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+function allowRebuildClosedPeriod(existing: any, periodEnd: string): boolean {
+  if (!existing || process.env.FORCE_REPORT_REBUILD === 'true') return true;
+  const today = getBeijingDate().toISOString().slice(0, 10);
+  return periodEnd >= today;
 }
 
 function getBeijingDate(): Date {
@@ -84,6 +103,12 @@ export async function generateDailyReport(dateStr?: string) {
 
   console.log(` Generating daily report for ${date}...`);
 
+  const previousReport = await existingReport('daily_reports', { report_date: date });
+  if (!allowRebuildClosedPeriod(previousReport, date)) {
+    console.log(`⏭ Daily report ${date} is a closed snapshot; set FORCE_REPORT_REBUILD=true to rebuild.`);
+    return previousReport;
+  }
+
   const startOfDay = `${date}T00:00:00+08:00`;
   const endOfDay = `${date}T23:59:59+08:00`;
 
@@ -109,10 +134,12 @@ export async function generateDailyReport(dateStr?: string) {
   const mustRead = selected.filter((a) => (a.score || 0) >= MUST_READ_MIN_SCORE).slice(0, DAILY_LIMITS.mustRead);
   const mustReadIds = new Set(mustRead.map((a) => a.id));
   const industryUpdates = selected.filter((a) => !mustReadIds.has(a.id)).slice(0, DAILY_LIMITS.industryUpdates);
-  const sourceSignals = pendingRows.slice(0, DAILY_LIMITS.sourceSignals);
+  // 线索层仍必须有可读正文；只有摘要/外链的记录不进入报告正文区。
+  const reviewSignals = pendingRows.filter((a) => hasFullContent(a)).slice(0, DAILY_LIMITS.sourceSignals);
   const recentHighlights = recentRows.filter((a) => (a.score || 0) >= PUBLISH_MIN_SCORE && hasFullContent(a));
   const articles = [...mustRead, ...industryUpdates];
-  console.log(`Found ${mustRead.length} must-read, ${industryUpdates.length} industry updates and ${sourceSignals.length} pending signals for ${date}`);
+  const fallbackHighlights = articles.length === 0 ? recentHighlights.slice(0, 5) : [];
+  console.log(`Found ${mustRead.length} must-read, ${industryUpdates.length} industry updates and ${reviewSignals.length} review signals for ${date}`);
 
   const categories = new Map<string, number>();
   for (const article of articles) categories.set(article.category, (categories.get(article.category) || 0) + 1);
@@ -122,10 +149,10 @@ export async function generateDailyReport(dateStr?: string) {
   const signals = Array.from(categories.entries()).sort((a, b) => b[1] - a[1]).slice(0, 3)
     .map(([category, count]) => `${categoryNames[category] || '行业动态'} ${count} 篇`);
   const sections = [
-    { id: 'must_read', name: '今日必读', maxItems: DAILY_LIMITS.mustRead, tier: 'must_read', articles: mustRead.map(articleCard) },
-    { id: 'industry_updates', name: '行业动态', maxItems: DAILY_LIMITS.industryUpdates, tier: 'industry_updates', articles: industryUpdates.map(articleCard) },
-    { id: 'source_signals', name: '原文线索', maxItems: DAILY_LIMITS.sourceSignals, tier: 'source_signals', articles: sourceSignals.map(articleCard) },
-    ...(articles.length === 0 && recentHighlights.length > 0 ? [{ id: 'recent_highlights', name: '近 7 日精选', maxItems: 5, tier: 'recent_highlights', articles: recentHighlights.map(articleCard) }] : []),
+    { id: 'must_read', name: '今日必读', maxItems: DAILY_LIMITS.mustRead, tier: 'must_read', articles: mustRead.map((a) => articleCard(a, 'selected')) },
+    { id: 'industry_updates', name: '行业动态', maxItems: DAILY_LIMITS.industryUpdates, tier: 'industry_updates', articles: industryUpdates.map((a) => articleCard(a, 'selected')) },
+    { id: 'review_signals', name: '待复核线索', maxItems: DAILY_LIMITS.sourceSignals, tier: 'review_signals', articles: reviewSignals.map((a) => articleCard(a, 'signal')) },
+    ...(articles.length === 0 && recentHighlights.length > 0 ? [{ id: 'recent_highlights', name: '近 7 日精选', maxItems: 5, tier: 'recent_highlights', articles: recentHighlights.map((a) => articleCard(a, 'selected')) }] : []),
     { id: 'today_signals', name: '今日信号', tier: 'today_signals', signals, articles: [] },
   ];
 
@@ -138,10 +165,10 @@ export async function generateDailyReport(dateStr?: string) {
     report_date: date,
     report_title: `${date} 保理日报`,
     sections,
-    total_articles: articles.length,
+    total_articles: articles.length + reviewSignals.length + fallbackHighlights.length,
     executive_summary: articles.length > 0
-      ? `${date}终审收录${articles.length}篇行业资讯，其中今日必读${mustRead.length}篇；另有${sourceSignals.length}条原文线索待终审。`
-      : `${date}暂无新增终审行业资讯；系统仍在持续抓取、评分与核验。${recentHighlights.length ? `下方保留近7日${recentHighlights.length}篇可读精选。` : ''}`,
+      ? `${date}共展示${articles.length + reviewSignals.length}篇可读行业资讯，其中终审精选${articles.length}篇、待复核线索${reviewSignals.length}篇。`
+      : `${date}暂无新增终审行业资讯；系统仍在持续抓取、评分与核验。${reviewSignals.length ? `本期保留${reviewSignals.length}篇有正文待复核线索。` : ''}${recentHighlights.length ? `下方保留近7日${recentHighlights.length}篇可读精选。` : ''}`,
     generated_at: new Date().toISOString(),
   };
 
@@ -168,6 +195,13 @@ export async function generateWeeklyReport(year: number, week: number) {
   const endDate = new Date(startDate);
   endDate.setDate(endDate.getDate() + 7);
 
+  const previousReport = await existingReport('weekly_reports', { year, week_number: week });
+  const periodEnd = new Date(endDate.getTime() - 86400000).toISOString().split('T')[0];
+  if (!allowRebuildClosedPeriod(previousReport, periodEnd)) {
+    console.log(`⏭ Weekly report ${year}-W${week} is a closed snapshot; set FORCE_REPORT_REBUILD=true to rebuild.`);
+    return previousReport;
+  }
+
   const { data: rows, error } = await supabase
     .from('articles')
     .select('*')
@@ -183,10 +217,14 @@ export async function generateWeeklyReport(year: number, week: number) {
     throw error || new Error('Failed to fetch weekly report articles');
   }
 
-  const articles = rows.filter(hasFullContent);
-  console.log(`Found ${articles.length} full-text articles for this week`);
+  const fullRows = rows.filter(hasFullContent);
+  const articles = fullRows.filter((a) => a.status === 'selected' && a.is_selected === true && Number(a.score || 0) >= PUBLISH_MIN_SCORE);
+  const reviewSignals = fullRows.filter((a) => a.status === 'pending' && a.pre_filtered === true);
+  const allReportArticles = [...articles, ...reviewSignals];
+  console.log(`Found ${articles.length} selected and ${reviewSignals.length} full-text review signals for this week`);
 
   const byCategory = (cat: string) => articles.filter(a => a.category === cat);
+  const signalsByCategory = (cat: string) => reviewSignals.filter(a => a.category === cat);
 
   const insights: string[] = [];
   const regulatory = byCategory('regulatory');
@@ -207,25 +245,30 @@ export async function generateWeeklyReport(year: number, week: number) {
     },
     section_frontier_interpretation: {
       title: '前沿解读',
-      articles: byCategory('frontier').slice(0, 5).map(articleCard),
+      articles: byCategory('frontier').slice(0, 8).map((a) => articleCard(a, 'selected')),
+      subsections: [{ title: '待复核线索', articles: signalsByCategory('frontier').slice(0, 4).map((a) => articleCard(a, 'signal')) }],
     },
     section_industry_model: {
       title: '行业前沿模式',
-      articles: byCategory('industry_model').slice(0, 5).map(articleCard),
+      articles: byCategory('industry_model').slice(0, 8).map((a) => articleCard(a, 'selected')),
+      subsections: [{ title: '待复核线索', articles: signalsByCategory('industry_model').slice(0, 4).map((a) => articleCard(a, 'signal')) }],
     },
     section_regulatory_news: {
       title: '前沿监管新闻',
-      articles: regulatory.slice(0, 5).map(articleCard),
+      articles: regulatory.slice(0, 8).map((a) => articleCard(a, 'selected')),
+      subsections: [{ title: '待复核线索', articles: signalsByCategory('regulatory').slice(0, 4).map((a) => articleCard(a, 'signal')) }],
     },
     section_dispute_resolution: {
       title: '前沿争议解决',
-      articles: dispute.slice(0, 5).map(articleCard),
+      articles: dispute.slice(0, 8).map((a) => articleCard(a, 'selected')),
+      subsections: [{ title: '待复核线索', articles: signalsByCategory('dispute').slice(0, 4).map((a) => articleCard(a, 'signal')) }],
     },
     section_normative_documents: {
       title: '前沿规范文件',
-      articles: byCategory('normative').slice(0, 5).map(articleCard),
+      articles: byCategory('normative').slice(0, 8).map((a) => articleCard(a, 'selected')),
+      subsections: [{ title: '待复核线索', articles: signalsByCategory('normative').slice(0, 4).map((a) => articleCard(a, 'signal')) }],
     },
-    executive_summary: `本周共收录${articles.length}篇文章，其中前沿解读${byCategory('frontier').length}篇，行业前沿模式${byCategory('industry_model').length}篇，前沿监管新闻${regulatory.length}篇，前沿争议解决${dispute.length}篇，前沿规范文件${byCategory('normative').length}篇。`,
+    executive_summary: `本周共展示${allReportArticles.length}篇有正文资讯，其中终审精选${articles.length}篇、待复核线索${reviewSignals.length}篇；前沿解读${byCategory('frontier').length}篇，行业前沿模式${byCategory('industry_model').length}篇，前沿监管新闻${regulatory.length}篇，前沿争议解决${dispute.length}篇，前沿规范文件${byCategory('normative').length}篇。`,
     key_insights: insights,
     trend_analysis: {
       category_distribution: {
@@ -237,7 +280,7 @@ export async function generateWeeklyReport(year: number, week: number) {
       },
       top_sources: getTopSources(articles, 5),
     },
-    total_articles: articles.length,
+    total_articles: allReportArticles.length,
     generated_at: new Date().toISOString(),
   };
 
@@ -262,6 +305,13 @@ export async function generateMonthlyReport(year: number, month: number) {
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 1);
 
+  const previousReport = await existingReport('monthly_reports', { year, month });
+  const periodEnd = new Date(endDate.getTime() - 86400000).toISOString().split('T')[0];
+  if (!allowRebuildClosedPeriod(previousReport, periodEnd)) {
+    console.log(`⏭ Monthly report ${year}-${month} is a closed snapshot; set FORCE_REPORT_REBUILD=true to rebuild.`);
+    return previousReport;
+  }
+
   const { data: rows, error } = await supabase
     .from('articles')
     .select('*')
@@ -277,10 +327,14 @@ export async function generateMonthlyReport(year: number, month: number) {
     throw error || new Error('Failed to fetch monthly report articles');
   }
 
-  const articles = rows.filter(hasFullContent);
-  console.log(`Found ${articles.length} full-text scored articles for ${year}年${month}月`);
+  const fullRows = rows.filter(hasFullContent);
+  const articles = fullRows.filter((a) => a.status === 'selected' && a.is_selected === true && Number(a.score || 0) >= PUBLISH_MIN_SCORE);
+  const reviewSignals = fullRows.filter((a) => a.status === 'pending' && a.pre_filtered === true);
+  const allReportArticles = [...articles, ...reviewSignals];
+  console.log(`Found ${articles.length} selected and ${reviewSignals.length} full-text review signals for ${year}年${month}月`);
 
   const byCategory = (cat: string) => articles.filter(a => a.category === cat);
+  const signalsByCategory = (cat: string) => reviewSignals.filter(a => a.category === cat);
 
   const regionalKeywords = ['省', '市', '区', '自治区', '天津', '广东', '浙江', '山东', '江苏', '上海', '四川', '陕西', '深圳', '重庆', '北京', '福建', '湖北', '湖南', '河南', '安徽', '河北', '辽宁', '吉林', '黑龙江', '江西', '广西', '云南', '贵州', '甘肃', '海南'];
   const nationalRegulatory = byCategory('regulatory').filter(a =>
@@ -295,7 +349,7 @@ export async function generateMonthlyReport(year: number, month: number) {
     : '0';
 
   const executiveSummary = [
-    `${year}年${month}月，保理与供应链金融研究中心共收录${articles.length}篇行业资讯。`,
+    `${year}年${month}月，保理与供应链金融研究中心共展示${allReportArticles.length}篇有正文行业资讯，其中终审精选${articles.length}篇、待复核线索${reviewSignals.length}篇。`,
     `其中前沿解读${byCategory('frontier').length}篇，行业前沿模式${byCategory('industry_model').length}篇，前沿监管新闻${byCategory('regulatory').length}篇，前沿争议解决${byCategory('dispute').length}篇，前沿规范文件${byCategory('normative').length}篇。`,
     `本月文章平均评分${avgScore}分。`,
   ].join('');
@@ -311,26 +365,31 @@ export async function generateMonthlyReport(year: number, month: number) {
     },
     section_frontier_interpretation: {
       title: '前沿解读',
-      articles: byCategory('frontier').slice(0, 5).map(articleCard),
+      articles: byCategory('frontier').slice(0, 12).map((a) => articleCard(a, 'selected')),
+      subsections: [{ title: '待复核线索', articles: signalsByCategory('frontier').slice(0, 6).map((a) => articleCard(a, 'signal')) }],
     },
     section_industry_model: {
       title: '行业前沿模式',
-      articles: byCategory('industry_model').slice(0, 5).map(articleCard),
+      articles: byCategory('industry_model').slice(0, 12).map((a) => articleCard(a, 'selected')),
+      subsections: [{ title: '待复核线索', articles: signalsByCategory('industry_model').slice(0, 6).map((a) => articleCard(a, 'signal')) }],
     },
     section_regulatory_news: {
       title: '前沿监管新闻',
       subsections: [
-        { title: '监管速递', articles: nationalRegulatory.slice(0, 5).map(articleCard) },
-        { title: '区域监管新闻', articles: regionalRegulatory.slice(0, 5).map(articleCard) },
+        { title: '监管速递', articles: nationalRegulatory.slice(0, 8).map((a) => articleCard(a, 'selected')) },
+        { title: '区域监管新闻', articles: regionalRegulatory.slice(0, 8).map((a) => articleCard(a, 'selected')) },
+        { title: '待复核线索', articles: signalsByCategory('regulatory').slice(0, 6).map((a) => articleCard(a, 'signal')) },
       ],
     },
     section_dispute_resolution: {
       title: '前沿争议解决',
-      articles: byCategory('dispute').slice(0, 5).map(articleCard),
+      articles: byCategory('dispute').slice(0, 12).map((a) => articleCard(a, 'selected')),
+      subsections: [{ title: '待复核线索', articles: signalsByCategory('dispute').slice(0, 6).map((a) => articleCard(a, 'signal')) }],
     },
     section_normative_documents: {
       title: '前沿规范文件',
-      articles: byCategory('normative').slice(0, 10).map(articleCard),
+      articles: byCategory('normative').slice(0, 16).map((a) => articleCard(a, 'selected')),
+      subsections: [{ title: '待复核线索', articles: signalsByCategory('normative').slice(0, 6).map((a) => articleCard(a, 'signal')) }],
     },
     editorial_board: {
       chief_editor: '田江涛',
@@ -339,7 +398,7 @@ export async function generateMonthlyReport(year: number, month: number) {
     },
     executive_summary: executiveSummary,
     monthly_overview: {
-      total_articles: articles.length,
+      total_articles: allReportArticles.length,
       by_category: {
         frontier: byCategory('frontier').length,
         industry_model: byCategory('industry_model').length,
@@ -360,7 +419,7 @@ export async function generateMonthlyReport(year: number, month: number) {
       avg_score: Number(avgScore),
       top_sources: getTopSources(articles, 8),
     },
-    total_articles: articles.length,
+    total_articles: allReportArticles.length,
     generated_at: new Date().toISOString(),
   };
 

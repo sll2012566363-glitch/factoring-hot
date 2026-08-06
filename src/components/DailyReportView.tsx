@@ -14,8 +14,8 @@ function ReportSectionView({ section }: { section: DailySection }) {
 
   const meta = id === 'must_read'
     ? { eyebrow: 'EDITOR\'S PICK', note: '终审入选、正文可读、至少具备两类行业价值信号', style: 'border-sky-200 bg-sky-50/50' }
-    : id === 'source_signals'
-      ? { eyebrow: 'SOURCE SIGNALS', note: '已命中业务组合词，低置信或待复核；仅提供摘要与原文入口', style: 'border-slate-200 bg-slate-50' }
+    : id === 'review_signals' || id === 'source_signals'
+      ? { eyebrow: 'REVIEW SIGNALS', note: '正文已可读，但尚未完成最终评分；保留供研究人员复核', style: 'border-amber-200 bg-amber-50/60' }
       : id === 'recent_highlights'
         ? { eyebrow: 'LAST 7 DAYS', note: '今日样本不足时保留的近期终审可读内容', style: 'border-slate-200 bg-white' }
       : { eyebrow: 'INDUSTRY UPDATES', note: '已完成终审的行业资讯，点击查看原文', style: 'border-slate-200 bg-white' };
@@ -34,8 +34,11 @@ interface DailyReportViewProps {
 export function DailyReportView({ report, articlesBySection }: DailyReportViewProps) {
   if (!report) return <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center"><p className="text-sm font-medium text-slate-700">今日日报尚未生成</p><p className="mt-2 text-xs text-slate-400">系统完成筛选后会自动生成；不以泛财经内容凑数。</p></div>;
 
+  const selectedCount = report.sections.filter(section => section.id === 'must_read' || section.id === 'industry_updates').reduce((sum, section) => sum + (articlesBySection[section.id] || section.articles || []).length, 0);
+  const reviewCount = (articlesBySection.review_signals || report.sections.find(section => section.id === 'review_signals')?.articles || []).length;
+
   return <article className="space-y-5 pb-10">
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><p className="text-xs font-semibold tracking-[0.14em] text-sky-700">DAILY BRIEFING</p><h2 className="mt-1 text-2xl font-semibold text-slate-950">{report.report_title || `${report.report_date} 保理日报`}</h2>{report.executive_summary && <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{report.executive_summary}</p>}<div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400"><span>终审收录 {report.total_articles} 篇</span><span className={report.is_stale ? 'text-amber-700' : ''}>{report.is_stale ? `当前展示 ${report.report_date} 的最近一期` : `生成于 ${new Date(report.generated_at).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })}`}</span></div></section>
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><p className="text-xs font-semibold tracking-[0.14em] text-sky-700">DAILY BRIEFING</p><h2 className="mt-1 text-2xl font-semibold text-slate-950">{report.report_title || `${report.report_date} 保理日报`}</h2>{report.executive_summary && <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{report.executive_summary}</p>}<div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400"><span>本期展示 {report.total_articles} 篇</span><span>终审精选 {selectedCount} 篇</span>{reviewCount ? <span className="text-amber-700">待复核 {reviewCount} 篇</span> : null}<span className={report.is_stale ? 'text-amber-700' : ''}>{report.is_stale ? `当前展示 ${report.report_date} 的最近一期` : `生成于 ${new Date(report.generated_at).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })}`}</span></div></section>
     {report.sections.map((section) => <ReportSectionView key={section.id} section={{ ...section, articles: articlesBySection[section.id] || section.articles || [] }} />)}
   </article>;
 }

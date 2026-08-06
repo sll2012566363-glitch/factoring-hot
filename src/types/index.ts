@@ -75,7 +75,7 @@ export interface ReportSection {
   name: string;
   articles: Article[];
   maxItems?: number;
-  tier?: 'must_read' | 'industry_updates' | 'source_signals' | 'today_signals' | 'recent_highlights';
+  tier?: 'must_read' | 'industry_updates' | 'source_signals' | 'review_signals' | 'today_signals' | 'recent_highlights';
   signals?: string[];
 }
 

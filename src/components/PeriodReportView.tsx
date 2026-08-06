@@ -159,7 +159,7 @@ function ArticleList({ articles }: { articles: any[] }) {
 }
 
 function ArticleMeta({ article }: { article: any }) {
-  return <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400">{article.source_name && <span>{article.source_name}</span>}{article.pub_date && <span>{String(article.pub_date).slice(0, 10)}</span>}{article.score != null && <span className="text-amber-700">{Math.round(article.score)} 分关注度</span>}</div>;
+  return <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400">{article.source_name && <span>{article.source_name}</span>}{article.pub_date && <span>{String(article.pub_date).slice(0, 10)}</span>}{article.score != null && <span className="text-amber-700">{Math.round(article.score)} 分关注度</span>}{article.review_tier === 'signal' && <span className="text-amber-700">待复核线索</span>}</div>;
 }
 
 function JsonSection({ data }: { data: any }) {
