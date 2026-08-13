@@ -8,6 +8,7 @@ import * as cheerio from 'cheerio';
 
 export const CONTENT_SELECTORS = [
   // Specific article containers must precede broad `.content` shells.
+  '#js_content', // 微信公众号正文
   '#endText', '.newsText', '.detailContent', '.articleWrap', '.entity_content',
   'article', '.article-content', '#content',
   '.post-body', '.entry-content', '.TRS_Editor', '.text',

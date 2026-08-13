@@ -681,6 +681,58 @@
       "selector": "a",
       "active": true,
       "note": "供应链票据、商票融资与票据服务平台业务动态"
+    },
+    {
+      "id": "wechat-factoring-law-research",
+      "name": "保理法律研究",
+      "url": "https://mp.weixin.qq.com/",
+      "type": "thinktank",
+      "category": "policy",
+      "priority": "T1",
+      "weight": 1.4,
+      "rss": null,
+      "selector": null,
+      "active": false,
+      "note": "微信公众号白名单；通过文章链接入库接口接入，不抓账号主页"
+    },
+    {
+      "id": "wechat-factoring-scf-legal-frontier",
+      "name": "保理和供应链法律前沿",
+      "url": "https://mp.weixin.qq.com/",
+      "type": "thinktank",
+      "category": "policy",
+      "priority": "T1",
+      "weight": 1.4,
+      "rss": null,
+      "selector": null,
+      "active": false,
+      "note": "团队原创微信公众号；通过文章链接入库接口接入，不抓账号主页"
+    },
+    {
+      "id": "wechat-supply-chain-finance",
+      "name": "供应链金融",
+      "url": "https://mp.weixin.qq.com/",
+      "type": "thinktank",
+      "category": "innovation",
+      "priority": "T1",
+      "weight": 1.3,
+      "rss": null,
+      "selector": null,
+      "active": false,
+      "note": "微信公众号白名单；通过文章链接入库接口接入，不抓账号主页"
+    },
+    {
+      "id": "wechat-supply-chain-industry-observation",
+      "name": "供应链行业观察",
+      "url": "https://mp.weixin.qq.com/",
+      "type": "thinktank",
+      "category": "market",
+      "priority": "T1.5",
+      "weight": 1.15,
+      "rss": null,
+      "selector": null,
+      "active": false,
+      "note": "微信公众号白名单；只接收供应链金融、ABS等强相关栏目文章"
     }
   ]
 }

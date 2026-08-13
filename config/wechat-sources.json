@@ -1,0 +1,94 @@
+{
+  "sources": [
+    {
+      "id": "wechat-factoring-law-research",
+      "name": "保理法律研究",
+      "priority": "T1",
+      "weight": 1.4,
+      "category": "policy",
+      "owned": false,
+      "note": "林思明律师运营；保理法律、裁判、立法与风险管理"
+    },
+    {
+      "id": "wechat-factoring-scf-legal-frontier",
+      "name": "保理和供应链法律前沿",
+      "priority": "T1",
+      "weight": 1.4,
+      "category": "policy",
+      "owned": true,
+      "note": "团队原创；保理与供应链金融法律实务"
+    },
+    {
+      "id": "wechat-supply-chain-finance",
+      "name": "供应链金融",
+      "priority": "T1",
+      "weight": 1.3,
+      "category": "innovation",
+      "owned": false,
+      "note": "供应链金融政策、业务理念与案例实践"
+    },
+    {
+      "id": "wechat-supply-chain-industry-observation",
+      "name": "供应链行业观察",
+      "priority": "T1.5",
+      "weight": 1.15,
+      "category": "market",
+      "owned": false,
+      "note": "仅收企业供应链金融、金融机构供应链金融和ABS栏目；泛供应链运营文章不收"
+    },
+    {
+      "id": "wanlian",
+      "name": "万联网",
+      "priority": "T1",
+      "weight": 1.25,
+      "category": "innovation",
+      "owned": false,
+      "note": "网站与公众号同源；仅收供应链金融、保理及产业金融实质文章"
+    },
+    {
+      "id": "cfec",
+      "name": "商业保理专业委员会",
+      "priority": "T1",
+      "weight": 1.35,
+      "category": "policy",
+      "owned": false,
+      "note": "全国性商业保理行业组织公众号文章"
+    },
+    {
+      "id": "syblxh-gd",
+      "name": "广东省商业保理协会",
+      "priority": "T1",
+      "weight": 1.3,
+      "category": "policy",
+      "owned": false,
+      "note": "协会政策、行业研究与风险提示"
+    },
+    {
+      "id": "syblxh-sz",
+      "name": "深圳市商业保理协会",
+      "priority": "T1",
+      "weight": 1.3,
+      "category": "policy",
+      "owned": false,
+      "note": "协会政策、行业研究与风险提示"
+    },
+    {
+      "id": "tcfa",
+      "name": "天津市商业保理协会",
+      "priority": "T1",
+      "weight": 1.25,
+      "category": "policy",
+      "owned": false,
+      "note": "协会政策、监管名单与行业资讯"
+    },
+    {
+      "id": "szscfa",
+      "name": "深圳市供应链金融协会",
+      "priority": "T1",
+      "weight": 1.25,
+      "category": "market",
+      "owned": false,
+      "note": "供应链金融研究与核心企业实践"
+    }
+  ]
+}

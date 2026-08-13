@@ -140,6 +140,10 @@ export const FACTORING_SOURCE_WHITELIST = new Set([
   'szfla',      // 深圳市融资租赁行业协会
   'wuhan-finance', // 地方金融监管部门的保理/租赁监管动态
   'wanlian',    // 强相关行业媒体；仅进入候选池，仍受正文与模型双闸门约束
+  'wechat-factoring-law-research',
+  'wechat-factoring-scf-legal-frontier',
+  'wechat-supply-chain-finance',
+  'wechat-supply-chain-industry-observation',
 ]);
 
 function stripHtml(html: string): string {
