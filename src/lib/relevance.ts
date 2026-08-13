@@ -144,6 +144,12 @@ export const FACTORING_SOURCE_WHITELIST = new Set([
   'wechat-factoring-scf-legal-frontier',
   'wechat-supply-chain-finance',
   'wechat-supply-chain-industry-observation',
+  'wechat-scf-academy',
+  'wechat-trade-finance',
+  'wechat-abs-observation',
+  'wechat-cnabs',
+  'wechat-leasing-view',
+  'wechat-leasing-committee',
 ]);
 
 function stripHtml(html: string): string {

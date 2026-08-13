@@ -8,6 +8,8 @@ test('WeChat registry contains the four user-approved specialist accounts', () =
     assert.equal(names.has(name), true);
   }
   assert.equal(getWechatSource('wechat-factoring-law-research')?.priority, 'T1');
+  assert.equal(getWechatSource('wechat-trade-finance')?.priority, 'T1');
+  assert.equal(getWechatSource('wechat-leasing-committee')?.priority, 'T1');
 });
 
 test('only direct HTTPS WeChat article URLs are importable', () => {

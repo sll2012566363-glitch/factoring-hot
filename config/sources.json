@@ -733,6 +733,84 @@
       "selector": null,
       "active": false,
       "note": "微信公众号白名单；只接收供应链金融、ABS等强相关栏目文章"
+    },
+    {
+      "id": "wechat-scf-academy",
+      "name": "供应链金融学堂",
+      "url": "https://mp.weixin.qq.com/",
+      "type": "thinktank",
+      "category": "innovation",
+      "priority": "T1.5",
+      "weight": 1.15,
+      "rss": null,
+      "selector": null,
+      "active": false,
+      "note": "微信公众号白名单；课程推广排除，仅通过文章链接导入"
+    },
+    {
+      "id": "wechat-trade-finance",
+      "name": "贸易金融",
+      "url": "https://mp.weixin.qq.com/",
+      "type": "thinktank",
+      "category": "market",
+      "priority": "T1",
+      "weight": 1.25,
+      "rss": null,
+      "selector": null,
+      "active": false,
+      "note": "官微 trade_finance；只通过文章链接导入"
+    },
+    {
+      "id": "wechat-abs-observation",
+      "name": "ABS行业观察",
+      "url": "https://mp.weixin.qq.com/",
+      "type": "thinktank",
+      "category": "market",
+      "priority": "T1.5",
+      "weight": 1.15,
+      "rss": null,
+      "selector": null,
+      "active": false,
+      "note": "只收供应链、保理、租赁相关ABS文章"
+    },
+    {
+      "id": "wechat-cnabs",
+      "name": "CNABS",
+      "url": "https://mp.weixin.qq.com/",
+      "type": "thinktank",
+      "category": "market",
+      "priority": "T1.5",
+      "weight": 1.15,
+      "rss": null,
+      "selector": null,
+      "active": false,
+      "note": "只收供应链、保理、租赁相关ABS产品及研究"
+    },
+    {
+      "id": "wechat-leasing-view",
+      "name": "租赁视界",
+      "url": "https://mp.weixin.qq.com/",
+      "type": "thinktank",
+      "category": "market",
+      "priority": "T1.5",
+      "weight": 1.1,
+      "rss": null,
+      "selector": null,
+      "active": false,
+      "note": "融资租赁专业公众号；培训推广排除"
+    },
+    {
+      "id": "wechat-leasing-committee",
+      "name": "融资租赁专业委员会",
+      "url": "https://mp.weixin.qq.com/",
+      "type": "association",
+      "category": "policy",
+      "priority": "T1",
+      "weight": 1.25,
+      "rss": null,
+      "selector": null,
+      "active": false,
+      "note": "中国服务贸易协会融资租赁专业委员会公众号内容"
     }
   ]
 }

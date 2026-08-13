@@ -89,6 +89,60 @@
       "category": "market",
       "owned": false,
       "note": "供应链金融研究与核心企业实践"
+    },
+    {
+      "id": "wechat-scf-academy",
+      "name": "供应链金融学堂",
+      "priority": "T1.5",
+      "weight": 1.15,
+      "category": "innovation",
+      "owned": false,
+      "note": "仅收政策解读、业务模式、风险控制与实践案例；课程招生内容排除"
+    },
+    {
+      "id": "wechat-trade-finance",
+      "name": "贸易金融",
+      "priority": "T1",
+      "weight": 1.25,
+      "category": "market",
+      "owned": false,
+      "note": "官微 trade_finance；贸易金融、交易银行与供应链金融研究"
+    },
+    {
+      "id": "wechat-abs-observation",
+      "name": "ABS行业观察",
+      "priority": "T1.5",
+      "weight": 1.15,
+      "category": "market",
+      "owned": false,
+      "note": "仅收供应链ABS、保理ABS、租赁ABS和应收账款证券化文章"
+    },
+    {
+      "id": "wechat-cnabs",
+      "name": "CNABS",
+      "priority": "T1.5",
+      "weight": 1.15,
+      "category": "market",
+      "owned": false,
+      "note": "仅收供应链、保理、融资租赁相关ABS产品及研究"
+    },
+    {
+      "id": "wechat-leasing-view",
+      "name": "租赁视界",
+      "priority": "T1.5",
+      "weight": 1.1,
+      "category": "market",
+      "owned": false,
+      "note": "融资租赁政策、法律、风控与产业租赁研究；培训推广排除"
+    },
+    {
+      "id": "wechat-leasing-committee",
+      "name": "融资租赁专业委员会",
+      "priority": "T1",
+      "weight": 1.25,
+      "category": "policy",
+      "owned": false,
+      "note": "中国服务贸易协会融资租赁专业委员会官方内容"
     }
   ]
 }
