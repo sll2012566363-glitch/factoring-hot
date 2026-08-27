@@ -74,10 +74,10 @@ export default async function AboutPage() {
           </div>
           <div className="mt-4 grid grid-cols-3 gap-2 text-center">
             <div className="rounded border border-[var(--line)] p-3"><strong className="block text-xl text-[var(--brand)]">{healthySources}</strong><span className="text-xs text-[var(--muted)]">正常来源</span></div>
-            <div className="rounded border border-[var(--line)] p-3"><strong className="block text-xl text-[var(--gold)]">{failedSources.length}</strong><span className="text-xs text-[var(--muted)]">抓取失败</span></div>
+            <div className="rounded border border-[var(--line)] p-3"><strong className="block text-xl text-[var(--red)]">{failedSources.length}</strong><span className="text-xs text-[var(--muted)]">抓取失败</span></div>
             <div className="rounded border border-[var(--line)] p-3"><strong className="block text-xl text-[var(--muted)]">{staleSources.length}</strong><span className="text-xs text-[var(--muted)]">超过 2 小时</span></div>
           </div>
-          {failedSources.length > 0 && <ul className="mt-4 space-y-2 text-xs text-[var(--muted)]">{failedSources.slice(0, 5).map(source => <li key={source.name} className="flex justify-between gap-3 border-t border-[var(--line)] pt-2"><span>{source.name}</span><span className="text-[var(--gold)]">连续失败 {source.consecutive_failures || 1} 次</span></li>)}</ul>}
+          {failedSources.length > 0 && <ul className="mt-4 space-y-2 text-xs text-[var(--muted)]">{failedSources.slice(0, 5).map(source => <li key={source.name} className="flex justify-between gap-3 border-t border-[var(--line)] pt-2"><span>{source.name}</span><span className="text-[var(--red)]">连续失败 {source.consecutive_failures || 1} 次</span></li>)}</ul>}
         </section>
 
         <section className="surface p-5 mb-4">
