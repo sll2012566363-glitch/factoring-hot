@@ -1,6 +1,6 @@
 # 保理 HOT — 项目交接文档
 
-> 最后更新：2026-07-09  
+> 最后更新：2026-08-27  
 > 线上地址：https://factoring-hot.vercel.app  
 > GitHub：https://github.com/sll2012566363-glitch/factoring-hot  
 > Supabase 项目名：baoli（region: ap-southeast-2）
@@ -215,24 +215,24 @@ NEXT_PUBLIC_SITE_NAME=保理 HOT
 
 ### 🔴 需要修复
 
-1. **公开 API 限流是内存级** — `public-api-utils.ts` 用 Map 做限流，Vercel serverless 多实例下限流只能作为轻量保护；高流量时应换持久化限流。
+1. **公开 API 限流**（2026-08-27 升级）— 默认仍为内存级限流；配置 `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` 环境变量后自动切换为 Redis 跨实例限流（Upstash 免费额度足够）。Redis 不可用时自动降级回内存限流。
 
 ### 🟡 可以优化
 
 2. **部分历史维护脚本仍是一次性工具** — 运行前需先在预览或备份环境确认影响范围。
 
-8. **管道无并发保护** — `cron/run-pipeline/route.ts` 没有"正在运行"锁，如果上一次未结束又触发新一次会冲突。
+8. **管道并发保护**（2026-08-27 部分修复）— `/api/cron/run-pipeline` 已有基于 `pipeline_runs` 表的运行锁（需应用 `20260827_pipeline_run_lock.sql` 迁移；未应用时自动降级为无锁运行）。GitHub Actions 层已有 concurrency 组保护。
 
-9. **`next.config.js` 中 `images.unoptimized: true`** — 禁用了所有图片优化，`remotePatterns` 配置形同虚设。
+9. **`next.config.js` 中 `images.unoptimized: true`** — 禁用了所有图片优化，`remotePatterns` 配置形同虚设。有意为之：绕过 img-proxy 的 Content-Type 校验有 SSRF 风险，保留现状。
 
-10. **周报/月刊没有定时自动生成** — 只有日报有 cron，周报和月刊需要手动触发。
+10. **周报/月刊定时自动生成**（2026-08-27 修复）— 周报在 daily-report.yml 中每日随日报生成；月刊由 monthly-report.yml 每月 1 日 09:00 北京时间自动生成上月月刊。
 
 ### 🟢 增强方向
 
-11. **微信公众号文章接入** — 当前48个信源无微信公众号，但用户现有月刊内容主要来自微信。
+11. **微信公众号文章接入** — wechat-sources.json 已有 25 个白名单账号（2026-08-27 新增 9 个），通过文章链接导入接口接入。
 12. **PDF 导出** — `report_archives` 表已预留 pdf_url 字段，但无实现。
 13. **邮件订阅** — 无实现。
-14. **搜索增强** — 当前用 `ilike` 做模糊搜索，数据量大后应换 PostgreSQL 全文检索或 pg_trgm。
+14. **搜索增强**（2026-08-27 修复）— 已添加 pg_trgm GIN 索引迁移 `20260827_search_trgm_indexes.sql`，`ilike` 查询走索引；应用迁移后生效。
 
 ---
 
@@ -304,17 +304,23 @@ npx tsx src/scripts/cleanup.ts
 
 ## 十二、信源概况
 
-共 48 个信源（41 个 active），按类型：
+共 62 个信源（46 个 active），按类型：
 
 | 类型 | 数量 | 说明 |
 |---|---|---|
-| government | 10 | 政府监管机构（央行、银保监、证监会等） |
-| association | 7 | 行业协会 |
-| media | 22 | 金融媒体 |
-| thinktank | 4 | 智库 |
+| government | 13 | 政府监管机构（央行、外汇局、国资委、上海金管局、工信部等） |
+| association | 11 | 行业协会（含商业保理专委会、各地保理/供应链金融协会） |
+| media | 26 | 金融媒体（含澎湃·10%公司、界面新闻） |
+| thinktank | 10 | 智库（含 9 个微信公众号白名单账号） |
 | exchange | 5 | 交易所 |
 
-信源配置文件：`config/sources.json`，每个信源包含 id/name/url/type/category/priority/weight/rss/selector/active 字段。
+**2026-08-27 新增信源（14 个）：**
+- 网站信源 5 个（active）：国家外汇管理局、上海市地方金融监督管理局、国务院国资委、澎湃新闻·10%公司、界面新闻
+- 微信白名单 9 个（import-only）：天逸集团、中企云链、联易融、简单汇、盛业、国新保理、远东宏信、金融监管研究院、普兰金服
+
+信源配置文件：`config/sources.json`，每个信源包含 id/name/url/type/category/priority/weight/rss/selector/active 字段。微信信源另见 `config/wechat-sources.json`。
+
+**新增信源后必须执行 `npm run init` 同步到数据库**（管道从 sources 表读取信源）。可用 `npx tsx scripts/verify-new-sources.ts` 验证选择器是否有效。
 
 ---
 

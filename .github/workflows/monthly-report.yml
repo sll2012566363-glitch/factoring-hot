@@ -1,0 +1,45 @@
+name: Monthly Report (1st, 9AM Beijing)
+
+on:
+  # 月刊每月 1 日上午 9 点（北京时间）自动生成并 upsert (year, month)。
+  # 与 daily-report.yml 的 daily/weekly 生成共用 generate-reports.ts monthly。
+  schedule:
+    - cron: '0 1 1 * *'  # 01:00 UTC = 09:00 北京时间
+  workflow_dispatch:
+
+concurrency:
+  group: factoring-monthly-report
+  cancel-in-progress: false
+
+jobs:
+  monthly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 生成上一个月的月刊（每月 1 日结算上月），CLI 内部按 ISO 月份取数。
+      # generate-reports.ts monthly 默认生成当月；每月 1 日生成当月会几乎为空，
+      # 因此这里先尝试上月，失败（例如脚本要求参数）则回退当月。
+      - name: Generate monthly report
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_API_URL: ${{ secrets.LLM_API_URL }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+        run: |
+          YEAR=$(date -u -d "$(date -u +%Y-%m-01) -1 month" +%Y)
+          MONTH=$(date -u -d "$(date -u +%Y-%m-01) -1 month" %-m)
+          echo "Generating monthly report for $YEAR-$MONTH"
+          npx tsx src/scripts/generate-reports.ts monthly "$YEAR" "$MONTH" || npx tsx src/scripts/generate-reports.ts monthly

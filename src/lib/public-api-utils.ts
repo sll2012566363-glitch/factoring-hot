@@ -58,7 +58,7 @@ export function checkETagMatch(request: NextRequest, etag: string): NextResponse
   return null;
 }
 
-// ── Simple in-memory rate limiter ──────────────────────────────────
+// ── Rate limiter: Upstash Redis (cross-instance) + in-memory fallback ──
 interface RateEntry {
   count: number;
   windowStart: number;
@@ -68,6 +68,9 @@ const rateMap = new Map<string, RateEntry>();
 const RATE_WINDOW_MS = 60_000; // 1 minute window
 const RATE_LIMIT = Math.min(Math.max(Number(process.env.PUBLIC_API_RATE_LIMIT) || 60, 10), 600);
 const MAX_RATE_KEYS = 10_000;
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+const RATE_REDIS_TIMEOUT_MS = 1_500;
 
 function getClientIP(request: NextRequest): string {
   return (
@@ -77,11 +80,62 @@ function getClientIP(request: NextRequest): string {
   );
 }
 
-export function checkRateLimit(request: NextRequest): NextResponse | null {
+/**
+ * Fixed-window counter in Upstash Redis via the REST pipeline API.
+ * Returns the hit count for the current window, or null when Redis is
+ * unavailable (not configured, timeout, error) so the caller can fall
+ * back to the in-memory limiter.
+ */
+async function redisRateIncrement(ip: string): Promise<number | null> {
+  if (!UPSTASH_URL || !UPSTASH_TOKEN) return null;
+  try {
+    const windowKey = `rl:${ip}:${Math.floor(Date.now() / RATE_WINDOW_MS)}`;
+    const response = await fetch(`${UPSTASH_URL}/pipeline`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${UPSTASH_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify([
+        ['INCR', windowKey],
+        ['EXPIRE', windowKey, '120'],
+      ]),
+      signal: AbortSignal.timeout(RATE_REDIS_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    const data = await response.json() as Array<{ result?: unknown }>;
+    const count = data?.[0]?.result;
+    return typeof count === 'number' ? count : null;
+  } catch {
+    return null;
+  }
+}
+
+function rateLimitResponse(): NextResponse {
+  return NextResponse.json(
+    { error: `Rate limit exceeded. Max ${RATE_LIMIT} requests per minute.` },
+    {
+      status: 429,
+      headers: {
+        'Retry-After': '60',
+        'X-RateLimit-Limit': String(RATE_LIMIT),
+        'X-RateLimit-Remaining': '0',
+      },
+    }
+  );
+}
+
+export async function checkRateLimit(request: NextRequest): Promise<NextResponse | null> {
   const ip = getClientIP(request);
+
+  // Cross-instance enforcement via Redis; on failure or when not configured,
+  // degrade to the in-memory counter (single-instance safety net only).
+  const redisCount = await redisRateIncrement(ip);
+  if (redisCount !== null) {
+    return redisCount > RATE_LIMIT ? rateLimitResponse() : null;
+  }
+
   const now = Date.now();
-  // Serverless instances are short lived, so this is only a local safety net.
-  // Vercel Firewall/WAF remains the cross-instance enforcement point.
   if (rateMap.size > MAX_RATE_KEYS || Math.random() < 0.01) {
     for (const [key, value] of rateMap) {
       if (now - value.windowStart > RATE_WINDOW_MS) rateMap.delete(key);
@@ -95,21 +149,7 @@ export function checkRateLimit(request: NextRequest): NextResponse | null {
   }
 
   entry.count++;
-  if (entry.count > RATE_LIMIT) {
-    return NextResponse.json(
-      { error: 'Rate limit exceeded. Max 60 requests per minute.' },
-      {
-        status: 429,
-        headers: {
-          'Retry-After': '60',
-          'X-RateLimit-Limit': String(RATE_LIMIT),
-          'X-RateLimit-Remaining': '0',
-        },
-      }
-    );
-  }
-
-  return null;
+  return entry.count > RATE_LIMIT ? rateLimitResponse() : null;
 }
 
 // ── Standard JSON response builder ─────────────────────────────────

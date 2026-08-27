@@ -19,7 +19,7 @@ const MAX_TAKE = 50;
  *   days  — look-back window in days (default: 7)
  */
 export async function GET(request: NextRequest) {
-  const rateBlocked = checkRateLimit(request);
+  const rateBlocked = await checkRateLimit(request);
   if (rateBlocked) return rateBlocked;
 
   const sp = request.nextUrl.searchParams;

@@ -9,7 +9,7 @@ const supabase = createClient(
 );
 
 export async function GET(request: NextRequest) {
-  const rateBlocked = checkRateLimit(request);
+  const rateBlocked = await checkRateLimit(request);
   if (rateBlocked) return rateBlocked;
   const searchParams = request.nextUrl.searchParams;
   // Use Beijing time for default date

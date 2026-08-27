@@ -15,7 +15,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://factoring-hot.verc
  * Supports ?date=YYYY-MM-DD for specific date.
  */
 export async function GET(request: NextRequest) {
-  const rateBlocked = checkRateLimit(request);
+  const rateBlocked = await checkRateLimit(request);
   if (rateBlocked) return rateBlocked;
 
   const sp = request.nextUrl.searchParams;

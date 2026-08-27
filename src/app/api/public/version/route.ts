@@ -7,7 +7,7 @@ import { checkRateLimit, jsonResponse } from '@/lib/public-api-utils';
  * Returns API version and endpoint index.
  */
 export async function GET(request: NextRequest) {
-  const rateBlocked = checkRateLimit(request);
+  const rateBlocked = await checkRateLimit(request);
   if (rateBlocked) return rateBlocked;
 
   const body = {

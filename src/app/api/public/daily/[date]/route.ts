@@ -17,7 +17,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ date: string }> }
 ) {
-  const rateBlocked = checkRateLimit(request);
+  const rateBlocked = await checkRateLimit(request);
   if (rateBlocked) return rateBlocked;
 
   const { date } = await params;

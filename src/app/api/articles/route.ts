@@ -11,7 +11,7 @@ const supabase = createClient(
 
 /** 写操作鉴权：必须配置 API_KEY 且请求携带正确 key（默认 closed） */
 export async function GET(request: NextRequest) {
-  const rateBlocked = checkRateLimit(request);
+  const rateBlocked = await checkRateLimit(request);
   if (rateBlocked) return rateBlocked;
   const searchParams = request.nextUrl.searchParams;
   const date = searchParams.get('date');

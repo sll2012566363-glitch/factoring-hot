@@ -37,7 +37,7 @@ const CATEGORY_LABELS: Record<string, string> = {
  */
 export async function GET(request: NextRequest) {
   // Rate limit check
-  const rateBlocked = checkRateLimit(request);
+  const rateBlocked = await checkRateLimit(request);
   if (rateBlocked) return rateBlocked;
 
   const sp = request.nextUrl.searchParams;
