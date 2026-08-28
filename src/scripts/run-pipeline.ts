@@ -4,12 +4,41 @@
  */
 import { spawn } from 'child_process';
 import path from 'path';
+import { createClient } from '@supabase/supabase-js';
 import { keepProcessAlive } from '../lib/keep-process-alive';
 
 const SCRIPTS_DIR = path.dirname(new URL(import.meta.url).pathname);
 const ROOT_DIR = path.resolve(SCRIPTS_DIR, '..', '..');
 
 const STEP_TIMEOUT_MS = 600_000; // 10 min per step
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+);
+
+interface RunRecord {
+  phase: string;
+  exit: 'ok' | 'failed' | 'timeout';
+  duration_s: number;
+}
+
+/** 指标落库：列不存在时静默跳过（迁移 20260828 前的兼容行为）。 */
+async function recordRun(phase: string, mode: string, steps: RunRecord[], allOk: boolean) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+  try {
+    await supabase.from('pipeline_runs').insert({
+      status: allOk ? 'finished' : 'failed',
+      trigger: mode,
+      metrics: {
+        pipeline_version: 2,
+        steps_ok: steps.filter(s => s.exit === 'ok').length,
+        steps_total: steps.length,
+      },
+      step_results: steps,
+    });
+  } catch { /* metrics column may not exist yet; run is still recorded by status */ }
+}
 
 /**
  * 运行单个管道步骤。
@@ -21,10 +50,11 @@ const STEP_TIMEOUT_MS = 600_000; // 10 min per step
  * 而 GitHub Actions 还报 success）。detached 进程组 + kill(-pid, SIGKILL)
  * 才能保证超时时整棵进程树死透。
  */
-function runStep(name: string, script: string): Promise<boolean> {
+function runStep(name: string, script: string): Promise<RunRecord> {
   console.log(`\n${'='.repeat(50)}`);
   console.log(`▶ ${name}`);
   console.log('='.repeat(50));
+  const stepStart = Date.now();
 
   return new Promise((resolve) => {
     const child = spawn('npx', ['tsx', script], {
@@ -45,19 +75,23 @@ function runStep(name: string, script: string): Promise<boolean> {
 
     child.on('exit', (code, signal) => {
       clearTimeout(timer);
+      const record: RunRecord = {
+        phase: name,
+        exit: code === 0 ? 'ok' : timedOut ? 'timeout' : 'failed',
+        duration_s: Math.round((Date.now() - stepStart) / 1000),
+      };
       if (code === 0) {
-        console.log(`✓ ${name} 完成`);
-        resolve(true);
+        console.log(`✓ ${name} 完成 (${record.duration_s}s)`);
       } else {
         console.error(`✗ ${name} 失败: exit=${code} signal=${signal}${timedOut ? ' (timeout)' : ''}`);
-        resolve(false);
       }
+      resolve(record);
     });
 
     child.on('error', (err) => {
       clearTimeout(timer);
       console.error(`✗ ${name} 失败:`, err.message);
-      resolve(false);
+      resolve({ phase: name, exit: 'failed', duration_s: Math.round((Date.now() - stepStart) / 1000) });
     });
   });
 }
@@ -70,10 +104,11 @@ async function main() {
 
   if (fetchOnly) {
     console.log('🔄 快速抓取模式（仅抓取，不评分不聚类）...\n');
-    const ok = await runStep('1/1 抓取文章', 'src/scripts/fetch-sources.ts');
+    const record = await runStep('1/1 抓取文章', 'src/scripts/fetch-sources.ts');
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`\n${ok ? '✅' : '✗'} 快速抓取完成，耗时 ${elapsed}s`);
-    if (!ok) process.exitCode = 1;
+    console.log(`\n${record.exit === 'ok' ? '✅' : '✗'} 快速抓取完成，耗时 ${elapsed}s`);
+    await recordRun('fetch-only', 'fetch-only', [record], record.exit === 'ok');
+    if (record.exit !== 'ok') process.exitCode = 1;
     return;
   }
 
@@ -86,12 +121,17 @@ async function main() {
       ['4/5 LLM评分', 'src/scripts/llm-score.ts'],
       ['5/5 状态校准', 'src/scripts/reconcile-selection.ts'],
     ] as const;
+    const records: RunRecord[] = [];
     for (const [name, script] of steps) {
-      if (!await runStep(name, script)) {
+      const record = await runStep(name, script);
+      records.push(record);
+      if (record.exit !== 'ok') {
+        await recordRun('realtime', 'realtime', records, false);
         process.exitCode = 1;
         return;
       }
     }
+    await recordRun('realtime', 'realtime', records, true);
     return;
   }
 
@@ -105,20 +145,22 @@ async function main() {
     ['5/6 状态校准', 'src/scripts/reconcile-selection.ts'],
     ['6/6 事件聚类', 'src/scripts/cluster-events.ts'],
   ] as const;
-  const results: boolean[] = [];
+  const records: RunRecord[] = [];
+  let allOk = true;
   for (const [name, script] of steps) {
-    const ok = await runStep(name, script);
-    results.push(ok);
-    if (!ok) break;
+    const record = await runStep(name, script);
+    records.push(record);
+    if (record.exit !== 'ok') { allOk = false; break; }
   }
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-  if (results.every(Boolean)) {
+  if (allOk) {
     console.log(`\n✅ 全链路管道完成，耗时 ${elapsed}s`);
   } else {
     console.error(`\n✗ 全链路管道存在失败步骤，耗时 ${elapsed}s`);
     process.exitCode = 1;
   }
+  await recordRun('full', 'full', records, allOk);
 }
 
 keepProcessAlive(main()).catch((error) => {
