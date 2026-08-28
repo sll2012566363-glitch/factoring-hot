@@ -49,6 +49,19 @@ function keywordFilter(title: string, text: string, sourceId?: string, link?: st
   return null;
 }
 
+/** step-3.7-flash 偶发在 JSON 外包裹 Markdown 或前置文本，先归一化再解析。 */
+function parseBatchPayload(raw: string): unknown {
+  const cleaned = raw.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+  const candidates: string[] = [cleaned];
+  const objectStart = cleaned.indexOf('{');
+  const objectEnd = cleaned.lastIndexOf('}');
+  if (objectStart >= 0 && objectEnd > objectStart) candidates.push(cleaned.slice(objectStart, objectEnd + 1));
+  for (const candidate of candidates) {
+    try { return JSON.parse(candidate); } catch { /* try the next form */ }
+  }
+  return null;
+}
+
 /**
  * 批量LLM过滤：一次发10篇标题，让模型判断是否跟保理/供应链金融相关
  */
@@ -101,7 +114,9 @@ ${articleList}
           messages: [{ role: 'user', content: prompt }],
           response_format: { type: 'json_object' },
           temperature: 0.1,
-          max_tokens: 300,
+          // flash 模型会先输出长推理链；300 会把 JSON 截断在推理段里，
+          // 导致整批解析失败退回纯关键词兜底。
+          max_tokens: 2048,
         }),
         signal: AbortSignal.timeout(30000),
       });
@@ -116,10 +131,16 @@ ${articleList}
         choices: Array<{ message: { content: string } }>;
       };
       const raw = data.choices?.[0]?.message?.content || '{}';
-      const parsed = JSON.parse(raw);
+      const parsed = parseBatchPayload(raw);
+      if (!parsed) {
+        console.log(`  Invalid JSON response: ${raw.slice(0, 80).replace(/\s+/g, ' ')}，保守处理本批`);
+        fallbackOnLLMFailure(batch, results);
+        continue;
+      }
 
       // 解析结果 — 支持 {items: [...]} 或直接 [...]
-      const items = Array.isArray(parsed) ? parsed : (parsed.items || parsed.results || []);
+      const parsedObject = parsed as Record<string, unknown>;
+      const items = (Array.isArray(parsed) ? parsed : (parsedObject.items || parsedObject.results || [])) as Array<Record<string, unknown>>;
 
       for (const item of items) {
         const idx = typeof item.index === 'number' ? item.index - 1 : -1;

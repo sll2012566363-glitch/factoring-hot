@@ -120,12 +120,16 @@ async function scoreWithDeepSeek(article: Article): Promise<ScoreResult | null> 
         model: MODEL,
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },
-        temperature: 0.3,
+        // temp=0.3 caused ±20-point score swings on identical articles;
+        // temp=0 keeps repeat variance within ~4 points.
+        temperature: 0,
         // step-3.7-flash emits a long private reasoning trace before JSON.
         // 4096 still truncates some responses at 7k+ reasoning characters.
         max_tokens: 8192,
       }),
-      signal: AbortSignal.timeout(45000),
+      // Measured 25-43s per request; 45s aborted slow requests and left
+      // articles stuck at score IS NULL forever.
+      signal: AbortSignal.timeout(90000),
     });
 
     if (!response.ok) {
@@ -171,6 +175,30 @@ async function scoreWithDeepSeek(article: Article): Promise<ScoreResult | null> 
   }
 }
 
+/**
+ * 边缘文章二次复核：首次得分落在发布线 ±5 分内（收录/拒绝的分界带），
+ * 追加一次评分并取维度均值，抵消单次采样在判定边界上的抖动。
+ */
+async function scoreWithConfirmation(article: Article): Promise<ScoreResult | null> {
+  const first = await scoreWithDeepSeek(article);
+  if (!first) return null;
+  if (first.score < PUBLISH_MIN_SCORE - 5 || first.score > PUBLISH_MIN_SCORE + 5) {
+    return first;
+  }
+  const second = await scoreWithDeepSeek(article);
+  if (!second) return first;
+  const averaged: ScoreResult['dimensions'] = {
+    frontier: Math.round((first.dimensions.frontier + second.dimensions.frontier) / 2),
+    industry_model: Math.round((first.dimensions.industry_model + second.dimensions.industry_model) / 2),
+    regulatory: Math.round((first.dimensions.regulatory + second.dimensions.regulatory) / 2),
+    dispute: Math.round((first.dimensions.dispute + second.dimensions.dispute) / 2),
+    normative: Math.round((first.dimensions.normative + second.dimensions.normative) / 2),
+  };
+  const total = Object.values(averaged).reduce((sum, value) => sum + value, 0);
+  console.log(`  ↻ 边缘复核: ${first.score} / ${second.score} → 均值 ${total}`);
+  return { ...first, score: total, dimensions: averaged };
+}
+
 export async function runScore() {
   console.log(`🤖 Starting LLM scoring with ${MODEL}...\n`);
 
@@ -214,7 +242,7 @@ export async function runScore() {
     const progress = `[${index + 1}/${scoreable.length}]`;
     console.log(`${progress} ${article.title.substring(0, 50)}...`);
 
-    const result = await scoreWithDeepSeek(article);
+    const result = await scoreWithConfirmation(article);
 
     if (!result) {
       failed++;
