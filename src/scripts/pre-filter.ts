@@ -275,7 +275,14 @@ export async function runPreFilter() {
       const batch = filtered.slice(i, i + batchSize);
       const { error } = await supabase
         .from('articles')
-        .update({ pre_filtered: false })
+        .update({
+          pre_filtered: false,
+          // 淘汰即归档：reconcile-selection 只处理有 LLM 分数的文章，
+          // 若这里只翻 pre_filtered 标志，淘汰项会永久停在 pending。
+          status: 'rejected',
+          is_selected: false,
+          ai_reason: '预筛淘汰：标题与摘要均无保理/供应链金融相关信号',
+        })
         .in('id', batch);
       if (error) console.error(`Failed to update filtered batch:`, error);
     }
