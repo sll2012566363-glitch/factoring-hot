@@ -10,7 +10,10 @@ import { keepProcessAlive } from '../lib/keep-process-alive';
 const SCRIPTS_DIR = path.dirname(new URL(import.meta.url).pathname);
 const ROOT_DIR = path.resolve(SCRIPTS_DIR, '..', '..');
 
-const STEP_TIMEOUT_MS = 600_000; // 10 min per step
+// 扩容信源后，预筛 696 篇实测 555s、评分 40+ 篇（25-43s/请求）都会逼近
+// 10 分钟——攒批/补评场景直接超时被杀。放宽到 20 分钟；增量轮次仍在
+// 分钟级完成，只有一次性追 backlog 时才会用到余量。
+const STEP_TIMEOUT_MS = 1_200_000; // 20 min per step
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

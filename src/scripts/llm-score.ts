@@ -293,7 +293,10 @@ export async function runScore() {
   let scored = 0;
   let failed = 0;
   let skipped = 0;
-  const concurrency = Math.min(Math.max(Number(process.env.SCORE_CONCURRENCY) || 2, 1), 8);
+  // 单次评分请求实测 25-43s，边界文章三评串行更是 75-130s；并发 2 时
+  // 40+ 篇的补评分批次会撞 10 分钟步骤超时被 SIGKILL。默认提到 4
+  //（预筛同样维持 3 并发未见 API 降速），仍可被 SCORE_CONCURRENCY 覆盖。
+  const concurrency = Math.min(Math.max(Number(process.env.SCORE_CONCURRENCY) || 4, 1), 8);
 
   const applyResult = async (article: Article, result: ScoreResult) => {
     const objective = applyObjectiveNewsFloor(article, result.score, result.dimensions);

@@ -150,6 +150,19 @@ export const FACTORING_SOURCE_WHITELIST = new Set([
   'wechat-cnabs',
   'wechat-leasing-view',
   'wechat-leasing-committee',
+  // —— 2026-08-28 扩容：让以下信源的文章直接送 LLM 预筛终审 ——
+  // 泛财经媒体：标题不含核心词时不再硬拦，由预筛模型判断内容相关性
+  'yicai', 'sina-finance', 'stcn', 'nbd', 'financialnews',
+  'jiemian', 'thepaper-10pc',
+  // 政府与监管：保理/租赁监管动态、清欠政策的官方源头
+  'shanghai-finance', 'safe', 'sasac', 'mofcom', 'ndrc', 'pbc',
+  'legaldaily', 'supcourt', 'csrc', 'amac', 'nafmii',
+  // 交易所与市场基础设施
+  'sse', 'szse', 'chinamoney', 'chinabond',
+  // 律所研究：保理/供应链金融法律实务分析的固定产出方
+  'kwm-insights', 'zhonglun-research', 'deheheng',
+  // 天津是商业保理注册重镇，市金融局公告以保理批复/监管评级为主
+  'tianjin-fa',
 ]);
 
 function stripHtml(html: string): string {

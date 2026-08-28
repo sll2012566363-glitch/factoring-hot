@@ -55,7 +55,7 @@
       "type": "government",
       "category": "policy",
       "priority": "T1.5",
-      "weight": 1.0,
+      "weight": 1,
       "rss": null,
       "selector": ".list li a",
       "active": true
@@ -67,7 +67,7 @@
       "type": "government",
       "category": "policy",
       "priority": "T1.5",
-      "weight": 1.0,
+      "weight": 1,
       "rss": null,
       "selector": ".list_content li a",
       "active": true
@@ -79,7 +79,7 @@
       "type": "government",
       "category": "policy",
       "priority": "T1.5",
-      "weight": 1.0,
+      "weight": 1,
       "rss": null,
       "selector": ".list li a",
       "active": false
@@ -115,7 +115,7 @@
       "type": "association",
       "category": "policy",
       "priority": "T1.5",
-      "weight": 1.0,
+      "weight": 1,
       "rss": null,
       "selector": ".news_list li a",
       "active": true
@@ -139,7 +139,7 @@
       "type": "association",
       "category": "market",
       "priority": "T1.5",
-      "weight": 1.0,
+      "weight": 1,
       "rss": null,
       "selector": ".news-list li a",
       "active": true
@@ -151,7 +151,7 @@
       "type": "association",
       "category": "policy",
       "priority": "T1.5",
-      "weight": 1.0,
+      "weight": 1,
       "rss": null,
       "selector": ".list li a",
       "active": false
@@ -175,7 +175,7 @@
       "type": "exchange",
       "category": "market",
       "priority": "T1.5",
-      "weight": 1.0,
+      "weight": 1,
       "rss": null,
       "selector": ".sse_list_1 dl dd a",
       "active": true
@@ -187,7 +187,7 @@
       "type": "exchange",
       "category": "market",
       "priority": "T1.5",
-      "weight": 1.0,
+      "weight": 1,
       "rss": null,
       "selector": ".article-list li a",
       "active": true
@@ -199,7 +199,7 @@
       "type": "exchange",
       "category": "market",
       "priority": "T1.5",
-      "weight": 1.0,
+      "weight": 1,
       "rss": null,
       "selector": ".news-list li a",
       "active": true
@@ -211,7 +211,7 @@
       "type": "exchange",
       "category": "market",
       "priority": "T1.5",
-      "weight": 1.0,
+      "weight": 1,
       "rss": null,
       "selector": ".list li a",
       "active": true
@@ -271,7 +271,7 @@
       "type": "media",
       "category": "market",
       "priority": "T1.5",
-      "weight": 1.0,
+      "weight": 1,
       "rss": null,
       "selector": ".news_list li a",
       "active": true
@@ -283,7 +283,7 @@
       "type": "media",
       "category": "market",
       "priority": "T1.5",
-      "weight": 1.0,
+      "weight": 1,
       "rss": null,
       "selector": ".news-list li a",
       "active": true
@@ -319,7 +319,7 @@
       "type": "media",
       "category": "market",
       "priority": "T1.5",
-      "weight": 1.0,
+      "weight": 1,
       "rss": null,
       "selector": ".news_list li a",
       "active": true
@@ -355,10 +355,11 @@
       "type": "media",
       "category": "market",
       "priority": "T1",
-      "weight": 1.0,
+      "weight": 1,
       "rss": null,
-      "selector": ".news-list li a",
-      "active": true
+      "selector": "a[href*='content_']",
+      "active": true,
+      "note": "2026-08-28 修复：原 .news-list li a 选择器已失效（站点改版），文章链接现统一为 content_ 前缀"
     },
     {
       "id": "nbd",
@@ -416,7 +417,7 @@
       "type": "media",
       "category": "innovation",
       "priority": "T1.5",
-      "weight": 1.0,
+      "weight": 1,
       "rss": null,
       "selector": ".news-list li a",
       "active": true,
@@ -429,7 +430,7 @@
       "type": "media",
       "category": "market",
       "priority": "T1",
-      "weight": 1.0,
+      "weight": 1,
       "rss": null,
       "selector": ".news-list li a",
       "active": true
@@ -441,7 +442,7 @@
       "type": "thinktank",
       "category": "market",
       "priority": "T1.5",
-      "weight": 1.0,
+      "weight": 1,
       "rss": null,
       "selector": ".news-list li a",
       "active": true
@@ -819,7 +820,7 @@
       "type": "government",
       "category": "policy",
       "priority": "T1.5",
-      "weight": 1.0,
+      "weight": 1,
       "rss": null,
       "selector": "a[title]",
       "active": true,
@@ -993,6 +994,71 @@
       "selector": null,
       "active": false,
       "note": "2026-08-27 新增微信白名单：票据与资金市场专业机构；只收票据、贴现与供应链票据研究"
+    },
+    {
+      "id": "kwm-insights",
+      "name": "金杜律师事务所·观点",
+      "url": "https://www.kwm.com/content/kwm/cn/zh/insights/latest-thinking.html",
+      "type": "thinktank",
+      "category": "legal",
+      "priority": "T1",
+      "weight": 1,
+      "rss": null,
+      "selector": "a[href*='insights/latest-thinking/']",
+      "active": true,
+      "note": "2026-08-28 新增：头部律所研究频道，服务端渲染；保理/供应链金融法律实务分析的高质量固定产出方"
+    },
+    {
+      "id": "zhonglun-research",
+      "name": "中伦律师事务所·研究",
+      "url": "https://www.zhonglun.com/research/articles",
+      "type": "thinktank",
+      "category": "legal",
+      "priority": "T1",
+      "weight": 1,
+      "rss": null,
+      "selector": "a[href*='/research/articles/'],a[href*='/research/report/']",
+      "active": true,
+      "note": "2026-08-28 新增：头部律所研究文章列表，服务端渲染；供应链金融与争议解决实务研究"
+    },
+    {
+      "id": "deheheng",
+      "name": "北京德和衡律师事务所·研究",
+      "url": "https://www.deheheng.com/",
+      "type": "thinktank",
+      "category": "legal",
+      "priority": "T1",
+      "weight": 1,
+      "rss": null,
+      "selector": "a[href*='/zhCN/dynamic/news/'],a[href*='/zhCN/academy/']",
+      "active": true,
+      "note": "2026-08-28 新增：德和衡官网首页服务端渲染的新闻动态与律师观点栏目；保理/供应链金融法律实务研究的固定产出方"
+    },
+    {
+      "id": "tianjin-fa",
+      "name": "天津市地方金融管理局",
+      "url": "https://jrgz.tj.gov.cn/xxfb/tzggl_1/index.html",
+      "type": "government",
+      "category": "policy",
+      "priority": "T1",
+      "weight": 1,
+      "rss": null,
+      "selector": null,
+      "active": true,
+      "note": "2026-08-28 新增：通知公告栏。天津为全国商业保理注册重镇，批复/监管评级/典型案例公告密度全国最高；文章链接走 onclick，需 extractLinkUrl 解析"
+    },
+    {
+      "id": "zqrb",
+      "name": "证券日报网",
+      "url": "http://www.zqrb.cn/finance/index.html",
+      "type": "media",
+      "category": "market",
+      "priority": "T2",
+      "weight": 0.8,
+      "rss": null,
+      "selector": null,
+      "active": true,
+      "note": "2026-08-28 新增：证券日报金融频道，服务端渲染；标题命中关键词时才入库（不在白名单，走关键词闸门）"
     }
   ]
 }

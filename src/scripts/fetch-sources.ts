@@ -17,7 +17,7 @@ const supabase = createClient(
 const parser = new Parser();
 let extendedHealthColumnsAvailable: boolean | null = null;
 const SOURCE_PAGE_TIMEOUT_MS = 8_000;
-const MAX_AMBIGUOUS_CANDIDATES_PER_SOURCE = 20;
+const MAX_AMBIGUOUS_CANDIDATES_PER_SOURCE = 40;
 const MAX_ARTICLES_PER_SOURCE = 50;
 const MAX_HTML_PAGES_PER_SOURCE = 4;
 const HISTORICAL_LOOKBACK_DAYS = 60;
@@ -275,6 +275,25 @@ function isNoiseLink(title: string, href: string): boolean {
   return NOISE_PATTERNS.some(p => p.test(title) || p.test(href));
 }
 
+// 政务网站（如天津市地方金融管理局）用 onclick="isDownLoad(this,'url')" 打开文章页，
+// <a> 没有 href——从 onclick 里解析出真实链接
+function extractLinkUrl($link: cheerio.Cheerio<any>): string | undefined {
+  const href = $link.attr('href');
+  if (href && href !== '#' && !/^javascript:/i.test(href)) return href;
+  const onclick = $link.attr('onclick');
+  if (!onclick) return undefined;
+  const m = onclick.match(/['"]([^'"]*\/[^'"]*\.(?:html?|shtml)|https?:\/\/[^'"]+)['"]/i);
+  return m ? m[1] : undefined;
+}
+
+// 部分站点（如德和衡官网）把日期前缀和"查看详细内容"后缀拼进链接文本，清掉再入库
+function cleanLinkTitle(title: string): string {
+  return title
+    .replace(/^\s*(\d{4}[-/.年]\d{1,2}[-/.月]\d{1,2}[日]?)\s*/, '')
+    .replace(/\s*(查看详细内容|查看详情|阅读全文|更多\s*>>*)\s*$/i, '')
+    .trim();
+}
+
 function genericExtract($: cheerio.CheerioAPI, source: Source, baseUrl: string): Article[] {
   const articles: Article[] = [];
   const seenLinks = new Set<string>();
@@ -286,10 +305,10 @@ function genericExtract($: cheerio.CheerioAPI, source: Source, baseUrl: string):
       const $el = $(el);
       // For some selectors, the link is a child <a> tag
       const $link = $el.is('a') ? $el : $el.find('a').first();
-      const href = $link.attr('href');
+      const href = extractLinkUrl($link);
       const textTitle = $link.text().trim().replace(/\s+/g, ' ');
       const attributeTitle = ($link.attr('title') || '').trim().replace(/\s+/g, ' ');
-      const title = attributeTitle.length > textTitle.length ? attributeTitle : textTitle;
+      const title = cleanLinkTitle(attributeTitle.length > textTitle.length ? attributeTitle : textTitle);
 
       if (!href || isNoiseLink(title, href)) return;
       const link = resolveUrl(baseUrl, href);
@@ -315,10 +334,10 @@ function genericExtract($: cheerio.CheerioAPI, source: Source, baseUrl: string):
   if (articles.length === 0) {
     $('a').each((_i, el) => {
       const $el = $(el);
-      const href = $el.attr('href');
+      const href = extractLinkUrl($el);
       const textTitle = $el.text().trim().replace(/\s+/g, ' ');
       const attributeTitle = ($el.attr('title') || '').trim().replace(/\s+/g, ' ');
-      const title = attributeTitle.length > textTitle.length ? attributeTitle : textTitle;
+      const title = cleanLinkTitle(attributeTitle.length > textTitle.length ? attributeTitle : textTitle);
 
       if (!href || isNoiseLink(title, href)) return;
 
@@ -450,7 +469,14 @@ export async function runFetch() {
     }
   }
 
-  for (const source of sources as Source[]) {
+  // 58+ 个信源串行抓取时，仅网络 I/O 就会超过 runStep 的 10 分钟步骤超时
+  //（2026-08-28 实测 10 分钟只跑完 57/58）。信源之间用有界并发池并行：
+  // 每个信源内部仍是逐页串行（对单一站点保持礼貌），不同站点同时抓取
+  // 只是相当于浏览器开了多个标签页。
+  const SOURCE_CONCURRENCY = 6;
+  const queue = [...(sources as Source[])];
+
+  async function processSource(source: Source) {
     try {
       let articles: Article[] = [];
 
@@ -532,10 +558,20 @@ export async function runFetch() {
       }
       await recordHealth(source, 'error', 0, 0, message);
     }
-
-    // Be polite: 800ms delay between sources
-    await new Promise(resolve => setTimeout(resolve, 800));
   }
+
+  const workers = Array.from(
+    { length: Math.min(SOURCE_CONCURRENCY, queue.length) },
+    () => (async () => {
+      while (queue.length > 0) {
+        const source = queue.shift()!;
+        await processSource(source);
+        // Be polite: 800ms delay between sources handled by this worker
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
+    })()
+  );
+  await Promise.all(workers);
 
   console.log(`\n✅ Fetch complete!`);
   console.log(`   Sources with articles: ${sourcesWithArticles}/${sources.length}`);
