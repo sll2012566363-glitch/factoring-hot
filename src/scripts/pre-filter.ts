@@ -99,7 +99,8 @@ async function batchFilterWithLLM(articles: Article[]): Promise<Map<string, bool
 文章列表：
 ${articleList}
 
-返回JSON数组，每个元素为 {"index": 序号, "relevant": true/false}。
+返回JSON对象（注意：items 必须是数组）：
+{"items": [{"index": 1, "relevant": true}, {"index": 2, "relevant": false}]}
 只返回JSON，不要其他内容。`;
 
     try {
@@ -116,9 +117,9 @@ ${articleList}
           temperature: 0.1,
           // flash 模型会先输出长推理链；300 会把 JSON 截断在推理段里，
           // 导致整批解析失败退回纯关键词兜底。
-          max_tokens: 2048,
+          max_tokens: 4096,
         }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(60000),
       });
 
       if (!response.ok) {
