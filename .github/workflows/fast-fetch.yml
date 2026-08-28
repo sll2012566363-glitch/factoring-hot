@@ -2,7 +2,8 @@ name: Realtime Pipeline (every 10min)
 
 on:
   schedule:
-    - cron: '*/10 * * * *'  # 每10分钟
+    # 避开整点/整十分（GitHub 调度高负载窗口，实测会被合并限流到 3 次/天）
+    - cron: '7,17,27,37,47,57 * * * *'
   workflow_dispatch:       # 手动触发
 
 concurrency:

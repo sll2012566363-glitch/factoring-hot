@@ -2,7 +2,8 @@ name: Pipeline (fetch → pre-filter → enrich → score → cluster)
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Every hour
+    # 整点触发实测被 GitHub 调度器丢弃（23 次/天跌到 3 次），挪到 :13 避开高负载窗口
+    - cron: '13 * * * *'
   workflow_dispatch:  # Allow manual trigger
 
 concurrency:
