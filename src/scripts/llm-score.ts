@@ -384,8 +384,11 @@ export async function runScore() {
   console.log(`   Failed:  ${failed}`);
   console.log(`   Skipped: ${skipped}`);
   console.log(`   Total:   ${scoreable.length}`);
-  if (scoreable.length > 0 && scored === 0 && failed > 0) {
-    throw new Error('All LLM scoring requests failed; refusing to mark the pipeline successful.');
+  if (scoreable.length > 0 && failed >= Math.max(3, scored)) {
+    // Actions runner → 国内 LLM API 的链路间歇性不通（实测 20/21 请求亚秒级
+    // fetch failed，仅个别成功）。多数失败必须显式红掉：否则连接性回归被
+    // 绿色步骤掩盖。失败文章保持 score IS NULL，下一轮自愈重试。
+    throw new Error(`LLM scoring majority failure: ${failed}/${scoreable.length} requests failed (scored ${scored}); marking the pipeline failed so connectivity regressions stay visible.`);
   }
   return { scored, failed, skipped: skipped + unscoreable.length, total: scoreable.length };
 }
