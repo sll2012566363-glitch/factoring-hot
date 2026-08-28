@@ -1,10 +1,13 @@
 'use client';
 
 import { Search, SlidersHorizontal } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import AppShell from '@/components/AppShell';
 import ArticleCard from '@/components/ArticleCard';
+import Pagination from '@/components/Pagination';
 import type { Article, Category } from '@/types';
+
+const PAGE_SIZE = 30;
 
 const sections: Category[] = [
   { id: 'frontier', name: '前沿解读', icon: '01', description: '评分最高的深度分析文章' },
@@ -41,11 +44,12 @@ export default function AllArticles() {
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [articles, setArticles] = useState<Article[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const listTopRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -53,7 +57,7 @@ export default function AllArticles() {
       setLoading(true);
       setError('');
       try {
-        const params = new URLSearchParams({ mode: 'all', take: '30' });
+        const params = new URLSearchParams({ mode: 'all', take: String(PAGE_SIZE), page: String(page) });
         if (selectedSection) params.set('category', selectedSection);
         if (searchQuery.trim()) params.set('q', searchQuery.trim());
         const response = await fetch(`/api/public/items?${params}`, { signal: controller.signal });
@@ -61,8 +65,7 @@ export default function AllArticles() {
         const data = await response.json();
         setArticles((data.items || []).map(toArticle));
         setTotal(data.total || 0);
-        setCursor(data.nextCursor || null);
-        setHasMore(Boolean(data.hasMore));
+        setTotalPages(data.totalPages || 1);
       } catch (err: any) {
         if (err?.name !== 'AbortError') setError(err?.message || '加载失败');
       } finally {
@@ -70,26 +73,16 @@ export default function AllArticles() {
       }
     }, 220);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [selectedSection, searchQuery]);
+  }, [selectedSection, searchQuery, page]);
 
-  const loadMore = async () => {
-    if (!cursor || loading) return;
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ mode: 'all', take: '30', cursor });
-      if (selectedSection) params.set('category', selectedSection);
-      if (searchQuery.trim()) params.set('q', searchQuery.trim());
-      const response = await fetch(`/api/public/items?${params}`);
-      if (!response.ok) throw new Error('加载更多失败');
-      const data = await response.json();
-      setArticles(prev => [...prev, ...(data.items || []).map(toArticle)]);
-      setCursor(data.nextCursor || null);
-      setHasMore(Boolean(data.hasMore));
-    } catch (err: any) {
-      setError(err?.message || '加载失败');
-    } finally {
-      setLoading(false);
-    }
+  const changeSection = (section: string | null) => {
+    setSelectedSection(section);
+    setPage(1);
+  };
+
+  const changePage = (next: number) => {
+    setPage(next);
+    listTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const selectedLabel = useMemo(() => sections.find(item => item.id === selectedSection)?.name || '全部资料', [selectedSection]);
@@ -108,22 +101,22 @@ export default function AllArticles() {
       </section>
 
       <section className="library-controls" aria-label="资料库筛选">
-        <label className="feed-search library-search"><Search size={15} /><input value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="搜索标题、摘要、正文或来源…" /></label>
+        <label className="feed-search library-search"><Search size={15} /><input value={searchQuery} onChange={event => { setSearchQuery(event.target.value); setPage(1); }} placeholder="搜索标题、摘要、正文或来源…" /></label>
         <div className="library-filter-label"><SlidersHorizontal size={14} /> 分类</div>
         <div className="feed-tabs" role="tablist" aria-label="文章分类">
-          <button onClick={() => setSelectedSection(null)} className={`feed-tab ${selectedSection === null ? 'active' : ''}`}>全部</button>
-          {sections.map(section => <button key={section.id} onClick={() => setSelectedSection(section.id)} className={`feed-tab ${selectedSection === section.id ? 'active' : ''}`}>{section.name}</button>)}
+          <button onClick={() => changeSection(null)} className={`feed-tab ${selectedSection === null ? 'active' : ''}`}>全部</button>
+          {sections.map(section => <button key={section.id} onClick={() => changeSection(section.id)} className={`feed-tab ${selectedSection === section.id ? 'active' : ''}`}>{section.name}</button>)}
         </div>
       </section>
 
       {error && <div className="library-error">{error}</div>}
-      <div className="library-results-meta">{searchQuery ? `“${searchQuery}”的检索结果` : '最新收录'} <span>{articles.length}{hasMore ? '+' : ''} 篇</span></div>
+      <div ref={listTopRef} />
+      <div className="library-results-meta">{searchQuery ? `“${searchQuery}”的检索结果` : '最新收录'} <span>共 {total} 篇 · 第 {page}/{totalPages} 页</span></div>
       <div className="mt-1">
         {articles.map(article => <ArticleCard key={article.id} article={article} categoryName={sections.find(section => section.id === article.category)?.name} />)}
       </div>
       {loading && <div className="text-center py-10 text-sm text-[var(--muted)]">正在加载资料…</div>}
-      {!loading && hasMore && <div className="text-center mt-6"><button onClick={loadMore} className="primary-button">加载更多资料</button></div>}
-      {!loading && !hasMore && articles.length > 0 && <div className="text-center mt-7 text-xs text-[var(--muted)]">已显示全部匹配资料</div>}
+      <Pagination page={page} totalPages={totalPages} onChange={changePage} />
       {!loading && !articles.length && <div className="library-empty"><strong>暂无匹配资料</strong><span>可以换一个关键词，或清除分类筛选。</span></div>}
     </AppShell>
   );
