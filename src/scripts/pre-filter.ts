@@ -63,7 +63,8 @@ function parseBatchPayload(raw: string): unknown {
 }
 
 /**
- * 批量LLM过滤：一次发10篇标题，让模型判断是否跟保理/供应链金融相关
+ * 批量LLM过滤：一次发10篇标题+短摘要，让模型判断是否跟保理/供应链金融相关。
+ * 批次间并发3——串行时950篇积压要20+分钟，管道10分钟超时跑不完一轮。
  */
 async function batchFilterWithLLM(articles: Article[]): Promise<Map<string, boolean>> {
   const results = new Map<string, boolean>();
@@ -74,14 +75,29 @@ async function batchFilterWithLLM(articles: Article[]): Promise<Map<string, bool
     return results;
   }
 
-  // 分批处理，每批10篇
   const batchSize = 10;
+  const batches: Article[][] = [];
   for (let i = 0; i < articles.length; i += batchSize) {
-    const batch = articles.slice(i, i + batchSize);
+    batches.push(articles.slice(i, i + batchSize));
+  }
 
-    const articleList = batch.map((a, idx) =>
-      `${idx + 1}. [${a.source_id}] ${a.title}`
-    ).join('\n');
+  let nextBatch = 0;
+  const worker = async () => {
+    while (nextBatch < batches.length) {
+      const batch = batches[nextBatch++];
+      await filterOneBatch(batch, results);
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  return results;
+}
+
+async function filterOneBatch(batch: Article[], results: Map<string, boolean>) {
+  // 标题常被站点截断或歧义，附60字摘要给模型判断依据
+  const articleList = batch.map((a, idx) => {
+      const brief = (a.excerpt || a.content || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+      return `${idx + 1}. [${a.source_id}] ${a.title}${brief ? `\n   摘要：${brief}` : ''}`;
+    }).join('\n');
 
     const prompt = `你是保理与供应链金融领域的内容审核专家。判断以下文章标题是否"真正属于"保理/供应链金融行业的实质资讯。
 
@@ -103,7 +119,7 @@ ${articleList}
 {"items": [{"index": 1, "relevant": true}, {"index": 2, "relevant": false}]}
 只返回JSON，不要其他内容。`;
 
-    try {
+  try {
       const response = await fetch(`${LLM_API_URL}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -125,7 +141,7 @@ ${articleList}
       if (!response.ok) {
         console.log(`  LLM API error ${response.status}, 保守处理本批：仅高置信关键词命中保留`);
         fallbackOnLLMFailure(batch, results);
-        continue;
+        return;
       }
 
       const data = await response.json() as {
@@ -136,7 +152,7 @@ ${articleList}
       if (!parsed) {
         console.log(`  Invalid JSON response: ${raw.slice(0, 80).replace(/\s+/g, ' ')}，保守处理本批`);
         fallbackOnLLMFailure(batch, results);
-        continue;
+        return;
       }
 
       // 解析结果 — 支持 {items: [...]} 或直接 [...]
@@ -152,19 +168,11 @@ ${articleList}
 
       // 模型漏项时按确定性规则兜底，不能默认为通过。
       fallbackOnLLMFailure(batch, results);
-    } catch (error) {
-      const msg = (error as Error).message;
-      console.log(`  LLM batch error: ${msg.substring(0, 60)}, 保守处理本批：仅高置信关键词命中保留`);
-      fallbackOnLLMFailure(batch, results);
-    }
-
-    // 批次间 300ms
-    if (i + batchSize < articles.length) {
-      await new Promise(resolve => setTimeout(resolve, 300));
-    }
+  } catch (error) {
+    const msg = (error as Error).message;
+    console.log(`  LLM batch error: ${msg.substring(0, 60)}, 保守处理本批：仅高置信关键词命中保留`);
+    fallbackOnLLMFailure(batch, results);
   }
-
-  return results;
 }
 
 /**

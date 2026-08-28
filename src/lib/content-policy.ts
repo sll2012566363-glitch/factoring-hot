@@ -1,10 +1,10 @@
 import { assessContentQuality } from '@/lib/content-quality';
 import { matchesTopicSignal } from '@/lib/relevance';
 
-export const SIGNAL_MIN_SCORE = 8;
-// 8分以上且正文完整的强相关文章均可公开展示；分数只用于内容分层。
-export const PUBLISH_MIN_SCORE = 8;
-export const MUST_READ_MIN_SCORE = 30;
+export const SIGNAL_MIN_SCORE = 6;
+// 6分以上且正文完整的强相关文章均可公开展示；分数只用于内容分层。
+export const PUBLISH_MIN_SCORE = 6;
+export const MUST_READ_MIN_SCORE = 25;
 
 export type ReviewStatus = 'pending' | 'selected' | 'rejected';
 

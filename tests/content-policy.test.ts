@@ -47,20 +47,21 @@ test('publication requires pre-filter, LLM score and full text', () => {
 test('objective industry events receive the publication floor', () => {
   const dimensions = { frontier: 1, industry_model: 3, regulatory: 0, dispute: 0, normative: 1 };
   const body = { content: '供应链金融ABS交易事实。'.repeat(50), content_html: '' };
+  const rawScore = PUBLISH_MIN_SCORE - 1;
   const deal = applyObjectiveNewsFloor(
     { ...body, title: '20亿元供应链金融ABS获批' },
-    5,
+    rawScore,
     dimensions,
   );
   assert.equal(deal.score, PUBLISH_MIN_SCORE);
-  assert.equal(deal.dimensions.industry_model, 6);
+  assert.equal(deal.dimensions.industry_model, dimensions.industry_model + 1);
 
   const generic = applyObjectiveNewsFloor(
     { ...body, title: '城市产业发展会议召开' },
-    5,
+    rawScore,
     dimensions,
   );
-  assert.equal(generic.score, 5);
+  assert.equal(generic.score, rawScore);
 });
 
 test('training notices are excluded before scoring', () => {
