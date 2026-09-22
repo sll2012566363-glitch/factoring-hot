@@ -25,6 +25,7 @@ function toArticle(item: any): Article {
     content: item.content || '',
     excerpt: item.summary || item.excerpt || '',
     pub_date: item.publishedAt || item.pub_date,
+    created_at: item.createdAt || item.created_at,
     source_id: item.sourceId || item.source_id || '',
     source_name: item.source || item.source_name || '未知来源',
     category: item.category,

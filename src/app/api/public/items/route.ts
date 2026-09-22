@@ -32,6 +32,7 @@ function toPublicItem(a: any, quality: ReturnType<typeof assessContentQuality>) 
     source: a.source_name,
     sourceId: a.source_id,
     publishedAt: a.pub_date,
+    createdAt: a.created_at,
     summary: a.excerpt || null,
     category: a.category,
     categoryLabel: CATEGORY_LABELS[a.category] || a.category,
