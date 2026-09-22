@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { fetchArticleContent } from '../lib/article-content';
-import { contentQualityFields, hasFullContent } from '../lib/content-quality';
+import { assessContentQuality, contentQualityFields } from '../lib/content-quality';
 import { keepProcessAlive } from '../lib/keep-process-alive';
 import { isScriptInvoked } from '../lib/script-entry';
 
@@ -131,11 +131,13 @@ export async function runEnrich() {
       }
 
       // A source adapter can recover a body after a prior contentless pass.
-      // Reopen only those terminal no-content records for LLM scoring.
-      if (article.status === 'rejected' && hasFullContent({
+      // Reopen any terminal no-content record that now carries usable content
+      // (full body OR summary-tier excerpt from e.g. JS-rendered quick-news
+      // pages) for LLM scoring — the score layer gates on quality itself.
+      if (article.status === 'rejected' && assessContentQuality({
         content: result.content,
         content_html: result.content_html,
-      })) {
+      }).tier !== 'external') {
         updatePayload.status = 'pending';
         updatePayload.scoring_method = null;
         updatePayload.scored_at = null;

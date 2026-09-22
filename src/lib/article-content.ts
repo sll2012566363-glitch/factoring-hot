@@ -105,15 +105,16 @@ export async function fetchArticleContent(url: string): Promise<FetchedArticleCo
     const title = extractPageTitle($);
     const { html, coverImage } = extractContentHtml($, url);
     const pubDate = extractPubDate($, url);
-    if (!html || html.length < 50) {
+    const text = html ? extractPlainText(html) : '';
+    // 空壳正文不可信任：部分 JS 渲染站（如 7x24 快讯页）静态 HTML 只含侧栏
+    // 图片，html 可能很长但纯文本为 0。此时回退用页面 meta description
+    // 摘要兜底，否则评分层无料可评，这些优质快讯永远上不了线。
+    if (!text || text.length < 30) {
       const summary = extractMetaDescription($);
       return summary
         ? { title, html: '', text: summary, excerpt: summary, coverImage, pubDate, summaryOnly: true }
         : null;
     }
-
-    const text = extractPlainText(html);
-    if (!text) return null;
     return { title, html, text, excerpt: buildExcerpt(text), coverImage, pubDate, summaryOnly: false };
   } catch {
     return null;
