@@ -1,29 +1,97 @@
 'use client';
 
+import { ArrowUpRight } from 'lucide-react';
 import { Article, DailyReport, ReportSection } from '@/types';
 
 type DailySection = ReportSection & { tier?: string; signals?: string[] };
 
+// 每个板块对应一个主题色（非图片横幅，改用网站品牌色系的 CSS 渐变横幅）
+const SECTION_THEMES: Record<string, { accent: string; soft: string }> = {
+  must_read: { accent: '#c41230', soft: '#fdf0f3' },
+  industry_updates: { accent: '#2b40ab', soft: '#eef1fc' },
+  regulatory: { accent: '#002c68', soft: '#e6ecf7' },
+  dispute: { accent: '#c41230', soft: '#fdf0f3' },
+  normative: { accent: '#2b40ab', soft: '#eef1fc' },
+  review_signals: { accent: '#b45309', soft: '#fdf6e9' },
+  source_signals: { accent: '#b45309', soft: '#fdf6e9' },
+};
+
+const SIGNALS_SECTION_IDS = new Set(['today_signals', 'review_signals', 'source_signals']);
+
+function sectionTitleOf(id: string): string {
+  if (id === 'must_read') return '今日必读';
+  if (id === 'industry_updates') return '行业动态';
+  if (id === 'review_signals') return '待复核线索';
+  if (id === 'source_signals') return '来源信号';
+  if (id === 'recent_highlights') return '近期精选';
+  return '今日动态';
+}
+
 function ReportSectionView({ section }: { section: DailySection }) {
   const { id, name, articles, maxItems = 5 } = section;
+
+  // 今日信号：一组彩色标签徽章，作日报顶部概览
   if (id === 'today_signals') {
     if (!section.signals?.length) return null;
-    return <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:p-6"><p className="text-xs font-semibold tracking-[0.14em] text-amber-700">TODAY&apos;S SIGNALS</p><h3 className="mt-1 text-lg font-semibold text-slate-950">今日信号</h3><div className="mt-3 flex flex-wrap gap-2">{section.signals.map((signal) => <span key={signal} className="rounded-full bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm">{signal}</span>)}</div></section>;
+    return (
+      <section className="daily-banner daily-banner-signals">
+        <div className="daily-banner-title">
+          <span className="daily-pill">今日信号</span>
+          <span className="daily-banner-note">signal of the day</span>
+        </div>
+        <div className="daily-signal-list">
+          {section.signals.map((signal) => (
+            <span key={signal} className="daily-signal">{signal}</span>
+          ))}
+        </div>
+      </section>
+    );
   }
   if (!articles.length) return null;
 
-  const meta = id === 'must_read'
-    ? { eyebrow: 'EDITOR\'S PICK', note: '终审入选、正文可读、至少具备两类行业价值信号', style: 'border-sky-200 bg-sky-50/50' }
-    : id === 'review_signals' || id === 'source_signals'
-      ? { eyebrow: 'REVIEW SIGNALS', note: '正文已可读，但尚未完成最终评分；保留供研究人员复核', style: 'border-amber-200 bg-amber-50/60' }
-      : id === 'recent_highlights'
-        ? { eyebrow: 'LAST 7 DAYS', note: '今日样本不足时保留的近期终审可读内容', style: 'border-slate-200 bg-white' }
-      : { eyebrow: 'INDUSTRY UPDATES', note: '已完成终审的行业资讯，点击查看原文', style: 'border-slate-200 bg-white' };
+  const theme = SECTION_THEMES[id] || SECTION_THEMES.industry_updates;
+  const isSignal = SIGNALS_SECTION_IDS.has(id);
+  const title = sectionTitleOf(id);
 
-  return <section className={`rounded-2xl border p-5 sm:p-6 ${meta.style}`}>
-    <div className="flex items-end justify-between gap-4"><div><p className="text-xs font-semibold tracking-[0.14em] text-sky-700">{meta.eyebrow}</p><h3 className="mt-1 text-xl font-semibold text-slate-950">{name}</h3><p className="mt-1 text-xs text-slate-500">{meta.note}</p></div><span className="shrink-0 text-xs text-slate-400">{articles.length} 篇</span></div>
-    <div className="mt-4 divide-y divide-slate-200/80">{articles.slice(0, maxItems).map((article) => <a key={article.id} href={article.link} target="_blank" rel="noopener noreferrer" className="group block py-3 first:pt-0 last:pb-0"><p className="text-sm font-medium leading-6 text-slate-800 transition-colors group-hover:text-sky-700">{article.title}</p><div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400"><span>{article.source_name}</span>{article.pub_date && <span>{String(article.pub_date).slice(0, 10)}</span>}{id !== 'source_signals' && article.score != null && <span className="text-amber-700">{Math.round(article.score)} 分</span>}</div>{article.excerpt && <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{article.excerpt}</p>}</a>)}</div>
-  </section>;
+  return (
+    <section className="daily-block">
+      {/* 板块横幅标题（CSS 渐变，非图片，符合网站品牌色） */}
+      <header className="daily-block-head" style={{ borderLeftColor: theme.accent }}>
+        <div>
+          <h3 className="daily-block-title" style={{ color: theme.accent }}>{title}</h3>
+          <p className="daily-block-note">
+            {id === 'must_read'
+              ? '终审入选、正文可读、具备行业价值信号'
+              : isSignal
+                ? '正文已可读但尚未完成最终评分，保留供复核'
+                : '已完成终审的行业资讯，点击查看原文'}
+          </p>
+        </div>
+        <span className="daily-count">{articles.length} 篇</span>
+      </header>
+
+      {/* 日报式圆点条目列表 */}
+      <div className="daily-list">
+        {articles.slice(0, maxItems).map((article) => (
+          <a key={article.id} href={article.link} target="_blank" rel="noopener noreferrer" className="daily-entry group">
+            <span className="daily-entry-dot" style={{ background: theme.accent }} aria-hidden />
+            <div className="daily-entry-main">
+              <p className="daily-entry-title group-hover:text-[color:var(--brand)]">
+                {article.title}
+              </p>
+              {article.excerpt && <p className="daily-entry-excerpt">{article.excerpt}</p>}
+              <div className="daily-entry-meta">
+                <span>{article.source_name}</span>
+                {article.pub_date && <span>{String(article.pub_date).slice(0, 10)}</span>}
+                {!isSignal && article.score != null && <span style={{ color: theme.accent }}>{Math.round(article.score)} 分</span>}
+                <ArrowUpRight size={13} className="daily-entry-arrow" />
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 interface DailyReportViewProps {
@@ -40,11 +108,31 @@ export function DailyReportView({ report, articlesBySection }: DailyReportViewPr
   const beijingDate = (value: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(value));
   const todayCount = reportArticles.filter(article => article.pub_date && beijingDate(article.pub_date) === report.report_date).length;
   const recentCount = Math.max(0, reportArticles.length - todayCount);
+  const title = report.report_title || `${report.report_date} 保理日报`;
 
-  return <article className="space-y-5 pb-10">
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><p className="text-xs font-semibold tracking-[0.14em] text-sky-700">DAILY BRIEFING</p><h2 className="mt-1 text-2xl font-semibold text-slate-950">{report.report_title || `${report.report_date} 保理日报`}</h2>{report.executive_summary && <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">{report.executive_summary}</p>}<div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400"><span>本期展示 {report.total_articles} 篇</span><span className="text-sky-700">今日新增 {todayCount} 篇</span>{recentCount ? <span>近期精选 {recentCount} 篇</span> : null}<span>终审精选 {selectedCount} 篇</span>{reviewCount ? <span className="text-amber-700">待复核 {reviewCount} 篇</span> : null}<span className={report.is_stale ? 'text-amber-700' : ''}>{report.is_stale ? `当前展示 ${report.report_date} 的最近一期` : `生成于 ${new Date(report.generated_at).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })}`}</span></div></section>
-    {report.sections.map((section) => <ReportSectionView key={section.id} section={{ ...section, articles: articlesBySection[section.id] || section.articles || [] }} />)}
-  </article>;
+  return (
+    <article className="daily-paper space-y-6 pb-10">
+      {/* 刊头：日期标题 + 办报说明（对齐微信日报，但用网站视觉） */}
+      <header className="daily-masthead">
+        <p className="page-eyebrow">Daily Briefing · 保理日报</p>
+        <h2 className="daily-masthead-title">{title}</h2>
+        <p className="daily-masthead-source">来源：各地金融监管官网及互联网公开信息 · 本平台归类整理</p>
+        {report.executive_summary && <p className="daily-masthead-lead">{report.executive_summary}</p>}
+        <div className="daily-masthead-meta">
+          <span>本期展示 <strong>{report.total_articles}</strong> 篇</span>
+          <span className="text-[color:var(--brand)]">今日新增 {todayCount} 篇</span>
+          {recentCount ? <span>近期精选 {recentCount} 篇</span> : null}
+          <span>终审精选 {selectedCount} 篇</span>
+          {reviewCount ? <span className="text-[color:var(--red)]">待复核 {reviewCount} 篇</span> : null}
+          <span className={report.is_stale ? 'text-[color:var(--red)]' : ''}>{report.is_stale ? `当前展示 ${report.report_date} 的最近一期` : `生成于 ${new Date(report.generated_at).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })}`}</span>
+        </div>
+      </header>
+
+      {report.sections.map((section) => (
+        <ReportSectionView key={section.id} section={{ ...section, articles: articlesBySection[section.id] || section.articles || [] }} />
+      ))}
+    </article>
+  );
 }
 
 export default DailyReportView;

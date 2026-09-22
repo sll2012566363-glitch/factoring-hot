@@ -127,12 +127,25 @@ export async function generateDailyReport(dateStr?: string) {
 
   // 三层日报：全文强相关精选、已终审动态、待终审原文线索。
   const selected = selectedRows.filter((a) => (a.score || 0) >= PUBLISH_MIN_SCORE && hasFullContent(a));
-  const mustRead = selected.filter((a) => (a.score || 0) >= MUST_READ_MIN_SCORE).slice(0, DAILY_LIMITS.mustRead);
-  const mustReadIds = new Set(mustRead.map((a) => a.id));
-  const industryUpdates = selected.filter((a) => !mustReadIds.has(a.id)).slice(0, DAILY_LIMITS.industryUpdates);
+  let mustRead = selected.filter((a) => (a.score || 0) >= MUST_READ_MIN_SCORE).slice(0, DAILY_LIMITS.mustRead);
+  let mustReadIds = new Set(mustRead.map((a) => a.id));
+  let industryUpdates = selected.filter((a) => !mustReadIds.has(a.id)).slice(0, DAILY_LIMITS.industryUpdates);
+  // 近7日高分终审精华：今日内容不足时补足必读/动态，避免日报空窗（体验更好）。
+  const recentPool = recentRows.filter((a) => (a.score || 0) >= PUBLISH_MIN_SCORE && hasFullContent(a)).filter((a) => !mustReadIds.has(a.id));
+  if (mustRead.length < DAILY_LIMITS.mustRead && recentPool.length) {
+    const fill = recentPool.filter((a) => !mustReadIds.has(a.id)).sort((x, y) => (y.score || 0) - (x.score || 0)).slice(0, DAILY_LIMITS.mustRead - mustRead.length);
+    for (const a of fill) {
+      mustRead = [...mustRead, a];
+      mustReadIds = new Set(mustRead.map((x) => x.id));
+    }
+  }
+  const recentForUpdates = recentPool.filter((a) => !mustReadIds.has(a.id));
+  if (industryUpdates.length < DAILY_LIMITS.industryUpdates && recentForUpdates.length) {
+    industryUpdates = [...industryUpdates, ...recentForUpdates.slice(0, DAILY_LIMITS.industryUpdates - industryUpdates.length)];
+  }
   // 线索层仍必须有可读正文；只有摘要/外链的记录不进入报告正文区。
   const reviewSignals = pendingRows.filter((a) => hasFullContent(a)).slice(0, DAILY_LIMITS.sourceSignals);
-  const recentHighlights = recentRows.filter((a) => (a.score || 0) >= PUBLISH_MIN_SCORE && hasFullContent(a));
+  const recentHighlights = recentPool;
   const articles = [...mustRead, ...industryUpdates];
   const fallbackHighlights = articles.length === 0 ? recentHighlights.slice(0, 5) : [];
   console.log(`Found ${mustRead.length} must-read, ${industryUpdates.length} industry updates and ${reviewSignals.length} review signals for ${date}`);
